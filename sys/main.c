@@ -11,10 +11,11 @@
 //#include <mem.h>
 #define kernbase 0xffffffff80000000
 #define INITIAL_STACK_SIZE 4096
-uint64_t pml4;
+//extern uint64_t pml4;
 uint8_t initial_stack[INITIAL_STACK_SIZE]__attribute__((aligned(16)));
 uint32_t* loader_stack;
-extern char kernmem, physbase;
+extern uint64_t kernmem, physbase,physfree;
+//extern uint64_t pml4;
 //void *kernbase, *kernfree;
 void start(uint32_t *modulep, void *physbase, void *physfree)
 {
@@ -51,18 +52,21 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
     }
   }		
 	kprintf("%p\n",a+b);
-	num_pages=create_list(a+b);
+	
+	num_pages=create_list(a+b,(uint64_t)physfree);
 	//kprintf("before this`");	
 	kprintf("Available memory pages: %d\n",num_pages);
   kprintf("physfree %p and physbase %p\n", (uint64_t)physfree,(uint64_t)physbase);
   kprintf("tarfs in [%p:%p]\n", &_binary_tarfs_start, &_binary_tarfs_end);
-  pml4 = page_alloc();
-  memset(pml4, 0, 512);
+  uint64_t pml4 = page_alloc();
+  if(pml4!=-1)
+  {
+ 	 memset((void *)pml4, 0, 512);
   
-  kernal_map(kernbase, physbase);
+ 	 kernal_map(kernbase, (uint64_t)physbase,pml4);
  // pa_to_va_map(kernbase, physbase);
   
-  
+  }
   
   initialize_idt();
 

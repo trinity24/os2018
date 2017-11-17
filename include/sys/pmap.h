@@ -1,6 +1,6 @@
 #include <sys/defs.h>
-#define PHYSFREE 0x720B000
-#define PHYSBASE 0X7200000
+#define PHYSFREE 0x20B000
+#define PHYSBASE 0X200000
 
 #define PAGESIZE 4096
 
@@ -10,12 +10,14 @@ struct Page {
 	struct Page *next;
 
 };
+ struct Page *free_list;//.=NULL;
 #define ALLOCATED 1
 #define FREE 0
 
-
-
+//uint64_t * get_pml4();
+//extern uint64_t pml4;
 //typedef uint64_t *;
+void memset(void *mem, int val, int len);
 //typedef struct pdp_table pdp;
 //typedef struct pd_table pd;
 //typedef struct pt_table pt;
@@ -45,10 +47,10 @@ struct pt
 
 
 uint64_t extract_bits_from_va(uint64_t virtual_address, int start, int end);
-void kern_map(uint64_t kernbase, uint64_t physbase);
-void page_table_walk(uint64_t pa, uint64_t va);
+void kernal_map(uint64_t kernbase, uint64_t physbase,uint64_t pml4);
+void page_table_walk(uint64_t pa, uint64_t va,uint64_t pml4);
 
-int create_list(uint64_t end);
+int create_list(uint64_t end,uint64_t physfree);
 uint64_t page_alloc();
 
 void set_page_free(int page);
