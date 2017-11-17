@@ -59,10 +59,11 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
   kprintf("physfree %p and physbase %p\n", (uint64_t)physfree,(uint64_t)physbase);
   kprintf("tarfs in [%p:%p]\n", &_binary_tarfs_start, &_binary_tarfs_end);
   uint64_t pml4 = page_alloc();
+ kprintf("pml4 is %p \n",(uint64_t)pml4); 
   if(pml4!=-1)
   {
  	 memset((void *)pml4, 0, 512);
-  
+  	 
  	 kernal_map(kernbase, (uint64_t)physbase,pml4);
  // pa_to_va_map(kernbase, physbase);
   

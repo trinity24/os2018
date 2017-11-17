@@ -25,7 +25,7 @@ int create_list( uint64_t end, uint64_t physfree)
 		p++;	
 		//(struct Page *)
 		(pages+i*(sizeof(struct Page)))->id = paddr+i*PAGESIZE;
-		if( paddr+i*PAGESIZE<physfree )
+		if( paddr+i*PAGESIZE<(physfree+3*(4096)) )
 		{
 			//(struct Page *)
 			(pages+i*(sizeof(struct Page)))->status = ALLOCATED;
@@ -45,11 +45,12 @@ int create_list( uint64_t end, uint64_t physfree)
 				free_list= (pages+i*(sizeof(struct Page)));
 				(pages+i*(sizeof(struct Page)))->status = FREE;
 				(pages+i*(sizeof(struct Page)))->id =paddr+i*PAGESIZE;
+//				kprintf("the address of free_list page is %p \n ",free_list->id);
 				free_list->next=NULL;
 				temp=free_list;
 		//			
 				f++;	
-				kprintf("%p is the first time free_list is updated \n",free_list);
+	//			kprintf("%p is the first time free_list is updated \n",free_list);
 			}
 			else
 			{
@@ -64,7 +65,7 @@ int create_list( uint64_t end, uint64_t physfree)
 			}	
 		}
 	}
-	kprintf("%d is the number of free_pages\n",f);
+	//kprintf("%d is the number of free_pages\n",f);
 	
 	kprintf("Free list at the end of create_list is %p \n",free_list);
 	return p;
@@ -87,15 +88,16 @@ void memset(void *mem, int val, int len)
 
 uint64_t page_alloc()
 {
-	kprintf("free_list now is %p",free_list);
 	uint64_t addr;
 	if(free_list!=NULL)
 	{
+		kprintf("free->id address is %p\n",free_list->id);
 		addr=free_list->id;
 		free_list->status=1;
 		struct Page *temp= free_list->next;
 		free_list->next=NULL;
 		free_list=temp;
+//		kprintf("free_list now is- after allocating page %p",free_list);
 		return addr;
 	}
 	/*	(struct Page *)
