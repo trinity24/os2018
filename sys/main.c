@@ -20,9 +20,9 @@ extern uint64_t kernmem, physbase,physfree;
 
 uint64_t extract_bits_frm_va(uint64_t virtual_address, int start)
 {
-  // create number of ones, 
+  // create number of ones,
 	  //uint64_t mask= (1<<(start-end+1));
-		  //return (virtual_address>>start)&mask;  
+		  //return (virtual_address>>start)&mask;
   if(start  == 39)
     return (virtual_address >> 39) & 0x1FF;
   else if(start == 30)
@@ -50,24 +50,24 @@ void va_to_pa(uint64_t va, uint64_t pa, uint64_t pml4a){
 
 void start(uint32_t *modulep, void *physbase, void *physfree)
 {
-	
+
 	int  num_pages=0;
     struct smap_t {
     uint64_t base, length;
     uint32_t type;
   }__attribute__((packed)) *smap;
-	
+
 	initScreen();
-//	uint32_t num_pages=0;  
+//	uint32_t num_pages=0;
 while(modulep[0] != 0x9001) modulep += modulep[1]+2;
    //uint32_t base1;
-	
+
 	uint64_t a=0,b=0;
 //   uint32_t page_size=4096;
-	
+
 	for(smap = (struct smap_t*)(modulep+2); smap < (struct smap_t*)((char*)modulep+modulep[1]+2*4); ++smap) {
 	if (smap->type == 1 /* memory */ && smap->length != 0) {
-	/*if (smap->base==0) 
+	/*if (smap->base==0)
 	{
 		k=(smap->length)/page_size;
 		//create_free_list(k);
@@ -77,36 +77,36 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
 		 //k=((smap->base+smap->length)-( uint64_t)physfree)/page_size;
 		//create_frlist(smap->base,k);
 		//num_pages+=k;
-		}*/	
+		}*/
 	//else num_pages=(smap->length)/page_size;
 	kprintf("Available Physical Memory [%p-%p]\n", smap->base, smap->base + smap->length);
 	a=smap->base;b=smap->length;
     }
-  }		
+  }
 	kprintf("%p\n",a+b);
-	
+
 	num_pages=create_list(a+b,(uint64_t)physfree);
-	//kprintf("before this`");	
+	//kprintf("before this`");
 	kprintf("Available memory pages: %d\n",num_pages);
   kprintf("physfree %p and physbase %p\n", (uint64_t)physfree,(uint64_t)physbase);
   //kprintf("tarfs in [%p:%p]\n", &_binary_tarfs_start, &_binary_tarfs_end);
-  uint64_t pml4 = page_alloc();
- 	//kprintf("pml4 is %p \n",(uint64_t)pml4); 
-  if(pml4!=-1)
+  pml4 *pml4_t = page_alloc();
+ 	//kprintf("pml4 is %p \n",(uint64_t)pml4);
+  if(*pml4_t!=-1)
   {
  	 memset((void *)pml4, 0, 512);
-  	 
- 	 kernal_map(kernbase+(uint64_t)physbase, (uint64_t)physbase,pml4);
+
+ 	 kernal_map(kernbase+(uint64_t)physbase, (uint64_t)physbase,pml4_t);
  	 //video_map(kernbase+(uint64_t)0xb8000, (uint64_t)0xb8000,pml4);
  //pa_to_va_map(kernbase, physbase);
-  
+
   }
-	kprintf("loading address %p in cr3\n", pml4);
+	kprintf("loading address %p in cr3\n", pml4_t);
 	//kprintf("address : %p", *(((uint64_t *)0x212000)) + 0x1);
 	//for(uint64_t k = 0; k < 0x000; k+=0x1000)
 	//	va_to_pa(kernbase+(uint64_t) physbase + k, (uint64_t) physbase+ k, pml4);
- 	va_to_pa(kernbase+(uint64_t) 0x201233, (uint64_t) 0x201233, pml4);
-	//__asm__ volatile("mov %0, %%cr3"::"b"(pml4)); 
+ 	//va_to_pa(kernbase+(uint64_t) 0x201233, (uint64_t) 0x201233, pml4_t);
+	//__asm__ volatile("mov %0, %%cr3"::"b"(pml4));
   //initialize_idt();
 
   //PIC_remap(32,40);
@@ -119,17 +119,17 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
     //        if( checkAHCI(bus, device)){
 		//goto x;
 		//}
-		
+
       //   }
      //}
 //x:
 //	uint32_t base1;
 //	base1=get_AHCIBASE(bus,device);
-//	ahci(base1);	
- 
+//	ahci(base1);
+
 while(1)
 {
-	
+
 }
 }
 
@@ -146,11 +146,11 @@ void boot(void)
     :"=g"(loader_stack)
     :"r"(&initial_stack[INITIAL_STACK_SIZE])
   );
-  
+
   kprintf("%s\n",(char*)(uint64_t)loader_stack[3]);
   kprintf("%s\n",(char*)(uint64_t)loader_stack[4]);
   init_gdt();
-//  interrupt_call(32); 
+//  interrupt_call(32);
   start(
     (uint32_t*)((char*)(uint64_t)loader_stack[3] + (uint64_t)&kernmem - (uint64_t)&physbase),
     (uint64_t*)&physbase,
