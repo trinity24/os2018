@@ -1,189 +1,190 @@
+#include <sys/kprintf.h>
+//#include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
-int Mystrlen(const char *s)
-{
-	//printf("In strlen fucntion now: \n");
-	int size=0;
-	if(s==NULL)
+
+enum dataTypes {character, integer, hex, string, pointer};
+#define BUFFER 256
+volatile char *videoCardEnd = (volatile char *)0xB8FA0;
+volatile char *videoCardStart = (volatile char *)0xB8000;
+volatile char *videoCardPosition = (volatile char *)0xB8000;
+int scrollForNextCall = 0;
+
+/*int maxof(int n_args, ...){
+	register int i;
+	int max, a;
+	va_list ap;
+
+	va_start(ap, n_args);
+	max = va_arg(ap, int);
+	for(i = 2; i <= n_args; i++) {
+		if((a = va_arg(ap, int)) > max)
+			max = a;
+	}
+
+	va_end(ap);
+	return max;
+}*/
+
+int printPointer(volatile char *video, int colour, uint64_t num) {//long long int num) {
+	if(num == 0) {
 		return 0;
+	}
+	int counter = printPointer(video, colour, num / 16);
+	int digit = num % 16;
+	if(digit < 0) {
+		digit *= -1;
+	}
+	if(digit >= 10) {
+		digit += 87;
+	} else {
+		digit += 48;
+	}
+	*(video + counter) = digit;
+	*(video + counter + 1) = colour;
+	return 2 + counter;
+}
 
-	while(*s !='\0')
-		{
-			//printf("Now counting started into loop  %c \n",*s);
-			s++;
-			
-			size++;
+int printHex(volatile char *video, int colour, int num) {
+	if(num == 0) {
+		return 0;
+	}
+	int counter = printHex(video, colour, num / 16);
+	int digit = num % 16;
+	if(digit >= 10) {
+		digit += 87;
+	} else {
+		digit += 48;
+	}
+	*(video + counter) = digit;
+	*(video + counter + 1) = colour;
+	return 2 + counter;
+}
+
+int printInt(volatile char *video, int colour, int num) {
+	if(num == 0) {
+		return 0;
+	}
+	int counter = printInt(video, colour, num / 10);
+	*(video + counter) = num % 10 + 48;
+	*(video + counter + 1) = colour;
+	return 2 + counter;
+}
+
+void kprintf(const char *fmt, ...) {
+	va_list parameters;
+	va_start(parameters, fmt);
+
+	int colour = 0x00;
+	int num = 0;
+	uint64_t pointer = 0;
+  volatile char *video = videoCardPosition;
+  while(*fmt != 0) {
+		if(scrollForNextCall) {
+			scroll();
+			video -= 160;
+			videoCardPosition -= 160;
+			scrollForNextCall = 0;
 		}
-	return (size);
-}
-//Reference used: https://github.com/stevej/osdev/blob/master/kernel/misc/kprintf.c
-// decimal value to string
-int base_print (unsigned long int value,int arg_width,char *finalstr,int iter,int base)
-{
-
-	if(value==0)
-	{
-		finalstr[iter++]='0';
-		return 1;
-	}	
-    int initial= iter;
-    char s[10]; int i=0;
-    int y=value%base;
-   // int k;
-    unsigned int x=value; int len,remain_width;
-    while(x!=0)
-    {
-            if(y>=10)
-                    s[i++]='A'+y-10;
-            else
-                    s[i++]=y+'0';
-            x=x/base;
-            y=x%base;
-            
-    }
-    len=Mystrlen(s);
-	 
-    //l=Mystrlen(finalstr);
-	remain_width= arg_width- len;
-    while(remain_width>0)
-    {
-     	finalstr[iter++]=0+'0';
-     	
-     	remain_width--;
-	}    
-   len=Mystrlen(s);  
-    int j=0; 
-    for(j=0;j<len;j++)
-    	finalstr[iter++]=s[len-j-1];
-    //finalstr[iter]='\0';
-    return iter-initial;
-}
-void clearscreen()
-{
-	char *video = (char*)0xB8000;
-	for(int i=0;i<25;i++)
-	{
-		for(int j=0;j<80;j++)
-		{
-			*video++ = ' ';
-        		*video++ = 0;	
-		}
-	}
-}
-//writing to the video output 
-//static volatile  char *video = (volatile char*)0xB8000;
- void write_string( int colour, const char *string )
-{	
-	int l=0;
-	//printf("writing to the screen\n");
-	  static volatile  char *video = (volatile char*)0xB8000;
-    while( *string )
-    {
-	if(*string=='\n' )
-	{
-		
-		video=video+(80-l)*2;
-		string++;
-		l=0;
-		    
-	}
-	else {
-    	l++;
-	if(l > 80)
-	   l=0;
-        *video++ = *string++;
-        *video++ = colour;
-	}
-    }
-}
-
-//this function is used to get a full string which is expected to see
-//on the screen from the mainstring and args into the "fullstr"
-int convert_fullstring(char *fullstr, char *mainstr, va_list args)
-{       
-	
-     //now we scan the mainstr and check if there are some format specifiers
-    int i=0,iter=0; int x;
-    int len=Mystrlen(mainstr);
-    char *s;
-//    char hexy[10];
-    while(i<len)
-    {       
-        //if it is not a format specifier and just a character then we take the same into the 
-        //fullstr which is the finalstr.
-        if(mainstr[i]!='%')
-            fullstr[iter++]=mainstr[i++];
-
-        //if we see a percent that means its a format specifier. so, we have to check the corresponding 
-        //arg for it and embed the value into the final string.
-        else
-        {   /*
-		if(mainstr[i]=='\')
-		{	
-			i++;
-			if(mainstr[i]=='n')
-			{	
-					
+		if(*fmt == '%') {
+			fmt++;
+			switch(*fmt) {
+				case 's':;
+					char *str = va_arg(parameters, char *);
+					while(*str != 0) {
+    				*video++ = *str++;
+    				*video++ = colour;
+					}
+					break;
+				case 'c':;
+					char ch = va_arg(parameters, int);
+    			*video++ = ch;
+    			*video++ = colour;
+					break;
+				case 'd':;
+					num = va_arg(parameters, int);
+					video += printInt(video, colour, num);
+					break;
+				case 'x':;
+					num = va_arg(parameters, int);
+					video += printHex(video, colour, num);
+					break;
+				case 'p':;
+					*video++ = '0';
+					*video++ = colour;
+					*video++ = 'x';
+					*video++ = colour;
+					pointer = (uint64_t)va_arg(parameters, void *);
+					video += printPointer(video, colour, pointer);
+					break;
 			}
-		}*/
-            int width_arg=0;
-            i++;
-            
-                //we can check if we have an integer that specifies more about the print value
-            while(mainstr[i]>'0' && mainstr[i]<'9') //if we have an integer
-            {       
-                width_arg*=10;
-                width_arg+=mainstr[i]-'0'; 
-                //we try to convert the string to integer. and thereby get the width required. 
-                i++;
-            }
-            switch(mainstr[i])
-            {       
-                case 'd':
-                         x=base_print((int)va_arg(args, int), width_arg, fullstr, iter,10);
-                         iter=x+iter;
-                         break;
-                case 'c':
-                         fullstr[iter++]= (char)(va_arg(args,int));
-                         break;
-                case 's':
-                         s= (char *)(va_arg(args,char *));
-			//int ll=Mystrlen(s);int j=0;
-                         while(*s)
-                         {       
-                             fullstr[iter++]=*s;
-			     s++;
-                         }
-                        break;
-                case 'x':
-			fullstr[iter++]='0';
-			fullstr[iter++]='x';
-                        x=base_print((unsigned long int)va_arg(args, unsigned long int), width_arg, fullstr, iter,16);
-                        iter=x+iter;
-                        break;
-        	case 'p':
-			x=base_print((long int)va_arg(args, long int),width_arg,fullstr,iter, 16);
-			iter=x+iter;
-			//break;
+			fmt++;
+		} else if(*fmt == '\n') {
+			if((videoCardPosition - videoCardStart) % 160) {
+				video += 160 - ((video - videoCardStart) % 160);
+			} else {
+				video += 160 - (video - videoCardPosition) % 160;
+			}
+			fmt++;
+		} else {
+    	*video++ = *fmt++;
+    	*video++ = colour;
+		}
+		if(video >= videoCardEnd) {
+			scrollForNextCall = 1;
+		}
+  }
+
+	/*__asm__ (
+	  //int funcname(int arg1, int *arg2, int arg3)
+		//"int $0x80"         make the request to the OS 
+	  //: "=a" (res),       return result in eax ("a") 
+	  //  "+b" (arg1),      pass arg1 in ebx ("b") 
+	  //  "+c" (arg2),      pass arg2 in ecx ("c") 
+	  //  "+d" (arg3)       pass arg3 in edx ("d")
+	  //: "a"  (128)        pass system call number in eax ("a") 
+	  //: "memory", "cc"
+		mov	al, 0x0f		//; Cursor location low byte index
+		mov	dx, 0x03D4	//; Write it to the CRT index register
+		out	dx, al
+
+	 	mov	al, bl			//; The current location is in EBX. BL contains the low byte, BH high byte
+		mov	dx, 0x03D5	//; Write it to the data register
+		out	dx, al			//; low byte
+		
+		);*/
+		videoCardPosition = video;
+		if(videoCardPosition >= videoCardEnd) {
+			//videoCardPosition = videoCardStart;
+			scrollForNextCall = 1;
+		}
+
+	va_end(parameters);
+}
+
+void initScreen() {
+  int i;
+	register char *p = (char*) videoCardStart;
+	for(i = 0; i < 4000; i++) {
+		*p = ' ';
+		p += 2;
 	}
-            
-        	i++;
-        }
-        
-}
-fullstr[iter]='\0';
-return 1;
-
 }
 
-int kprintf(char *mainString, ...)
-{
-    va_list args;
-    va_start(args,mainString);
-    char finalString[1024];   
-    convert_fullstring(finalString,mainString,args);
-    va_end(args);
-    write_string(11, finalString);
-    return 1;
+void scroll() {
+	int i, j;
+	register char *p = (char *) videoCardStart;
+
+	//for first 24 lines, copy contents from the next line
+	for(i = 0; i < 24; i++) {
+		for(j = 0; j < 160; j++) {
+			*p = *(p + 160);
+			p++;
+		}
+	}
+	//for the last line, print blank spaces
+	for(j = 0; j < 160; j++) {
+		*p = ' ';
+		p += 2;
+	}
 }
-                                                                                                                                        
