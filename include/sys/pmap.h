@@ -49,7 +49,7 @@ struct pt
 uint64_t extract_bits_from_va(uint64_t virtual_address, int start, int end);
 void kernal_map(uint64_t kernbase, uint64_t physbase,uint64_t* pml4);
 void page_table_walk(uint64_t pa, uint64_t va,uint64_t* pml4);
-void video_map(uint64_t , uint64_t ,uint64_t);
+void video_map(uint64_t , uint64_t ,uint64_t*);
 int create_list(uint64_t end,uint64_t physfree);
 uint64_t* page_alloc();
 

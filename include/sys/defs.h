@@ -13,7 +13,7 @@ typedef unsigned char   uint8_t;
 typedef          char    int8_t;
 
 typedef uint64_t pml4;
-typedef uint64_t pdpe;
+typedef uint64_t pdp;
 typedef uint64_t pd;
 typedef uint64_t pt;
 

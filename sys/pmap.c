@@ -106,7 +106,7 @@ uint64_t *page_alloc()
 		free_list->next=NULL;
 		free_list=temp;
 //		kprintf("free_list now is- after allocating page %p",free_list);
-		return addr;
+		return *addr;
 	}
 	/*	(struct Page *)
 	free_list->status = 1;
