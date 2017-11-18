@@ -71,21 +71,30 @@ int create_list( uint64_t end, uint64_t physfree)
 
 }
 
-void memset(void *mem, int val, int len)
-{
-  //int i;
-  uint64_t *p =(uint64_t *)  mem;
-//  i = 0;
-  while(len > 0)
-    {
-      *p = (uint64_t)val;
-      p++;
-      len--;
-    }
-  return;
+// void memset(void *mem, int val, int len)
+// {
+//   //int i;
+//   uint64_t *p =(uint64_t *)  mem;
+// //  i = 0;
+//   while(len > 0)
+//     {
+//       *p = (uint64_t)val;
+//       p++;
+//       len--;
+//     }
+//   return;
+// }
+
+void memset(void *mem, int val, int len){
+	char *p = (char *)mem;
+	while(len > 0){
+		*p = val;
+		p++;
+		len--;
+	}
 }
 
-uint64_t page_alloc()
+uint64_t *page_alloc()
 {
 	uint64_t addr;
 	if(free_list!=NULL)

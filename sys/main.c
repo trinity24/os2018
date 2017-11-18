@@ -94,7 +94,7 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
  	//kprintf("pml4 is %p \n",(uint64_t)pml4);
   if(*pml4_t!=-1)
   {
- 	 memset((void *)pml4, 0, 512);
+ 	 memset((void *)pml4_t, 0, 4096);
 
  	 kernal_map(kernbase+(uint64_t)physbase, (uint64_t)physbase,pml4_t);
  	 //video_map(kernbase+(uint64_t)0xb8000, (uint64_t)0xb8000,pml4);
