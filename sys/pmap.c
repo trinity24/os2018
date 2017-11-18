@@ -96,28 +96,21 @@ void memset(void *mem, int val, int len){
 
 uint64_t *page_alloc()
 {
-	uint64_t addr;
+	uint64_t* addr;
 	if(free_list!=NULL)
 	{
 		//kprintf("free->id address is %p\n",free_list->id);
-		addr=free_list->id;
+		*addr=free_list->id;
 		free_list->status=1;
 		struct Page *temp= free_list->next;
 		free_list->next=NULL;
 		free_list=temp;
 //		kprintf("free_list now is- after allocating page %p",free_list);
-		return *addr;
+		return addr;
 	}
-	/*	(struct Page *)
-	free_list->status = 1;
-	//struct Page *temp= free_list;
-	free_list->next=NULL;
-	free_list=temp;
-	temp->next=NULL;
-	return temp->id;*/
 	else{
 		kprintf("Pages not available, ran out of memory !!\n");
-		return (-1);
+		return NULL;
 	}
 
 }

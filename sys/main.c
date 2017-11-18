@@ -92,7 +92,7 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
   //kprintf("tarfs in [%p:%p]\n", &_binary_tarfs_start, &_binary_tarfs_end);
   pml4 *pml4_t = page_alloc();
  	//kprintf("pml4 is %p \n",(uint64_t)pml4);
-  if(*pml4_t!=-1)
+  if( *pml4_t != NULL)
   {
  	 memset((void *)pml4_t, 0, 4096);
 
