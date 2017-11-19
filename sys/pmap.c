@@ -85,22 +85,24 @@ int create_list( uint64_t end, uint64_t physfree)
 //   return;
 // }
 
-void memset(void *mem, int val, int len){
-	char *p = (char *)mem;
+void memset(uint64_t mem, int val, int len){
+	char *p = NULL;
+	p = (char *)mem;
 	while(len > 0){
-		*p = val;
-		p++;
-		len--;
-	}
+	 	*p = val;
+	 	p++;
+	 	len--;
+	 }
+	return;
 }
 
-uint64_t *page_alloc()
+
+uint64_t page_alloc()
 {
-	uint64_t* addr;
+	uint64_t addr;
 	if(free_list!=NULL)
 	{
-		//kprintf("free->id address is %p\n",free_list->id);
-		*addr=free_list->id;
+		addr=free_list->id;
 		free_list->status=1;
 		struct Page *temp= free_list->next;
 		free_list->next=NULL;
@@ -110,10 +112,11 @@ uint64_t *page_alloc()
 	}
 	else{
 		kprintf("Pages not available, ran out of memory !!\n");
-		return NULL;
+		return -1;
 	}
 
 }
+
 
 int is_free(int n)
 {
@@ -134,7 +137,7 @@ void set_page_free(int n)
 	return;
 }
 
-uint64_t extract_bits_from_va(uint64_t virtual_address, int start, int end)
+uint64_t extract_bits_from_va(uint64_t virtual_address, int start)
 {
 	// create number of ones,
 	//uint64_t mask= (1<<(start-end+1));
@@ -150,12 +153,13 @@ uint64_t extract_bits_from_va(uint64_t virtual_address, int start, int end)
 
 }
 
-void kernal_map(uint64_t kernbase, uint64_t physbase,pml4* pml4_t)
+void kernal_map(uint64_t kernbase, uint64_t physbase,pml4 pml4_t)
 {
 
 	int num_pages= (PHYSFREE - PHYSBASE)/4096;
 	uint64_t va,pa;
 	kprintf("%d\n", (PHYSFREE-PHYSBASE) /4096);
+	kprintf("pml4 %p\n", pml4_t);
 	for(int i=0;i<num_pages;i++)
 	{
 		va=kernbase+i*(PAGESIZE);
@@ -164,112 +168,89 @@ void kernal_map(uint64_t kernbase, uint64_t physbase,pml4* pml4_t)
 	}
 	return;
 }
-void video_map(uint64_t vm_va, uint64_t vmbase,pml4* pml4_t)
+void video_map(uint64_t vm_va, uint64_t vmbase,pml4 pml4_t)
 {
-
-  int num_pages= 3;
-  uint64_t va,pa;
-  for(int i=0;i<num_pages;i++)
-  {
-    va=vm_va+i*(PAGESIZE);
-    pa=vmbase+i*(PAGESIZE);
-    page_table_walk(pa,va,pml4_t);
-  }
+  page_table_walk(vmbase,vm_va,pml4_t);
   return;
 }
-void page_table_walk(uint64_t pa, uint64_t va,pml4* pml4_t)
+void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 {
-	uint64_t virtual_address=va;
-	uint64_t pml4_index = extract_bits_from_va(virtual_address,39,47);
-	if(*(pml4_t + pml4_index) & 0x1)
-	{
-		//uint64_t pdp = *(  ( (uint64_t*) (pml4 + pml4_index) ) ); //(((uint64_t*))(pml4 + pml4_index));
-		//uint64_t pdp = (*(  ( (uint64_t*) (pml4 + pml4_index) ) ) ) >>  12; //(((uint64_t*))(pml4 + pml4_index));
-		pdp *pdp_t = *(pml4_t + pml4_index) >> 12;
-		uint64_t pdpt_index = extract_bits_from_va(virtual_address,30,38);
-		//if((*((uint64_t*)(pdp+pdpt_index)))&01)
-		if(*(pdp_t + pdpt_index) & 0x1)
-		{
-			//uint64_t pd = *((uint64_t*)(pdp+pdpt_index));
-			//uint64_t pd = (*((uint64_t*)(pdp+pdpt_index))) >> 12;
-			pd *pd_t = *(pdp_t + pdpt_index) >> 12;
-		  uint64_t pde_index = extract_bits_from_va(virtual_address,21,29);
+	uint64_t pml4_i = extract_bits_from_va(va, 39);
+	uint64_t pdpe_i = extract_bits_from_va(va, 30);
+	uint64_t pde_i = extract_bits_from_va(va, 21);
+	uint64_t pte_i = extract_bits_from_va(va, 12);
+	if( *((pml4 *)pml4_t + pml4_i) & 0x3){
+		pdp pdp_t = *((pml4 *)pml4_t + pml4_i) >> 12;
+		if( *((pdp *)pdp_t + pdpe_i) & 0x3){
+			pd pd_t = *((pdp *)pdp_t + pdpe_i) >> 12;
 
-			if(*(pd_t + pde_index) & 0x1)
-			{
-				//uint64_t pt = *((uint64_t*)(pd+pde_index));
-				pt *pt_t = *(pd_t + pde_index) >> 12;
-				uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-				//*((uint64_t*)(pt+pte_index))  = ((pa << 12) | 3);
-				//*((uint64_t*)(pt+pte_index))  = pa;
-				//*(((uint64_t*)pt)+pte_index)  = ((pa << 12) | 3);
-				*(pt_t + pte_index) = ((pa << 12) | 3);
+			if(*((pd *)pd_t + pde_i) & 0x3){
+					pt pt_t = *((pd *)pd_t + pde_i) >> 12;
+					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
+			}else{
+				//create pt
+				pt pt_t = page_alloc();
+				if(pt_t != -1){
+					memset(pt_t, 0, 4096);
+					*((pd *)pd_t + pde_i) = (pt_t << 12) | 0x3;
+
+					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
+				}else{
+					kprintf("Ran out of free memory\n");
+				}
 			}
-			else
-			{
-				pt *pt_t= page_alloc();
-				memset((void *)pt_t, 0, 4096);
-				*(pd_t + pde_index) = (*pt_t << 12) | 0x3;
 
-				uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-				//*((uint64_t*)(pt+pte_index))  = ((pa << 12) | 3);
-				//*(((uint64_t*)pt)+pte_index)  = pa;
-				*(pt_t + pte_index) = ((pa << 12) | 3);
+		}else{
+			//create pd
+			pd pd_t = page_alloc();
+			if(pd_t != -1){
+				memset(pd_t, 0, 4096);
+				pt pt_t = page_alloc();
+				if(pt_t != -1){
+					memset(pt_t, 0, 4096);
+					*((pd *)pd_t + pde_i) = (pt_t << 12) | 0x3;
+
+					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
+				}else{
+					kprintf("Ran out of free memory\n");
+				}
+			}
+			else{
+				kprintf("Ran out of free memory\n");
 			}
 
 		}
-		else
-		{
-			pd *pd_t= page_alloc();
-			memset((void *)pd_t, 0, 4096);
-			//*((uint64_t*)(pdp+pdpt_index)) = (pd << 12)|3;
-			*(pdp_t + pdpt_index) (*pd_t << 12) | 0x3;
+	}else{
+		pdp pdp_t = page_alloc();
+		if(pdp_t != -1){
+			memset(pdp_t, 0, 4096);
+			*((pml4 *)pml4_t + pml4_i) = (pdp_t << 12) | 0x3;
 
-			uint64_t pde_index = extract_bits_from_va(virtual_address,21,29);
+			pd pd_t = page_alloc();
+			if(pd_t != -1){
+				memset(pd_t, 0, 4096);
+				*((pdp *)pdp_t + pdpe_i) = (pd_t << 12) | 0x3;
 
-			pt *pt_t= page_alloc();
-			memset((void *)pt_t, 0, 4096);
+				pt pt_t = page_alloc();
+				if(pt_t != -1){
+					memset(pt_t, 0, 4096);
+					*((pd *)pd_t + pde_i) = (pt_t << 12) | 0x3;
 
-			*(pd_t + pde_index) = (*pt_t << 12) | 0x3;
-
-			uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-			//*((uint64_t*)(pt+pte_index)) = ((pa << 12) | 3);
-			//*((uint64_t*)(pt+pte_index))  = pa;
-			//*(((uint64_t*)pt)+pte_index)  = pa;
-			*(pt_t + pte_index) = ((pa << 12) | 3);
+					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
+				}else{
+					kprintf("Ran out of free memory\n");
+				}
+			}else{
+					kprintf("Ran out of free memory\n");
+			}
+		}else{
+			kprintf("Ran out of free memory\n");
 		}
 	}
-	else
-	{
-		//make a pagedirectory pounter table;
-		//fill in the pml4 entry with that
-		kprintf("PDP was not present creating a new one\n");
-		pdp* pdp_t=page_alloc();
-		memset((void *)pdp_t, 0, 4096);
-		//*((uint64_t*)(pml4 +pml4_index)) = (pdp << 12)|3;
-		*(pml4_t + pml4_index) = (*pdp_t << 12) | 0x3;
-		//now fill in the pdpt entry.
-		uint64_t pdpt_index = extract_bits_from_va(virtual_address,30,38);
-
-		//:187pdp_thread:
-		pd *pd_t= page_alloc();
-		memset((void *)pd_t, 0, 4096);
-		//*((uint64_t*)(pdp+pdpt_index)) = (pd << 12)|3;
-		*(pdp_t + pdpt_index) = (*pd_t << 12) | 0x3;
-
-		uint64_t pde_index = extract_bits_from_va(virtual_address,21,29);
-		pt *pt_t= page_alloc();
-		memset((void *)pt_t, 0, 4096);
-		*((uint64_t *)(pd+pde_index))= (pt << 12)|3;
-		*(pd_t + pde_index) = (*pt_t << 12) | 0x3;
-
-		uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-		//*((uint64_t*)(pt+pte_index))  = ((pa << 12) | 3);
-		//*((uint64_t*)(pt+pte_index))  = pa;
-		//*(((uint64_t*)pt)+pte_index)  = pa;
-		*(pt_t + pte_index) = ((pa << 12) | 3);
-	}
-
 	return;
 
 }

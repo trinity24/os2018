@@ -35,16 +35,20 @@ uint64_t extract_bits_frm_va(uint64_t virtual_address, int start)
    return (virtual_address) & 0xFFF;
 }
 
-void va_to_pa(uint64_t va, uint64_t pa, uint64_t pml4a){
+void va_to_pa(uint64_t va, uint64_t pa, pml4 pml4_t){
 	uint64_t pml4_i = extract_bits_frm_va(va, 39);
 	uint64_t pdpe_i = extract_bits_frm_va(va, 30);
 	uint64_t pde_i = extract_bits_frm_va(va, 21);
 	uint64_t pte_i = extract_bits_frm_va(va, 12);
-	uint64_t pml4_e = (*((uint64_t *)(pml4a + pml4_i))) >> 12;
-	uint64_t pdp_e = (*((uint64_t *)(pml4_e + pdpe_i))) >> 12;
-	uint64_t pd_e = (*((uint64_t *)(pdp_e + pde_i))) >> 12;
-	uint64_t pt_e = *((uint64_t *)pd_e + pte_i) >> 12;
-	kprintf("va %p to pa %p\n", va, pt_e+ extract_bits_frm_va(va, 0));
+	// uint64_t pml4_e = (*((uint64_t *)(pml4a + pml4_i))) >> 12;
+	// uint64_t pdp_e = (*((uint64_t *)(pml4_e + pdpe_i))) >> 12;
+	// uint64_t pd_e = (*((uint64_t *)(pdp_e + pde_i))) >> 12;
+	// uint64_t pt_e = *((uint64_t *)pd_e + pte_i) >> 12;
+  pdp pdp_b = *((pml4 *)pml4_t + pml4_i) >> 12;
+  pd pd_b = *((pdp *)pdp_b + pdpe_i) >> 12;
+  pt pt_b = *((pd *)pd_b + pde_i) >> 12;
+  uint64_t pya = *((pt *)pt_b + pte_i) >> 12;
+	kprintf("va : %p to pa : %p\n", va, pya);
 	//kprintf("%p %p %p %p\n", pml4_e, pdp_e, pd_e, pt_e + extract_bits_frm_va(va, 0));
 }
 
@@ -90,23 +94,25 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
 	kprintf("Available memory pages: %d\n",num_pages);
   kprintf("physfree %p and physbase %p\n", (uint64_t)physfree,(uint64_t)physbase);
   //kprintf("tarfs in [%p:%p]\n", &_binary_tarfs_start, &_binary_tarfs_end);
-  pml4 *pml4_t = page_alloc();
+  pml4 pml4_t = page_alloc();
+  //pml4_t = page_alloc();
  	//kprintf("pml4 is %p \n",(uint64_t)pml4);
-  if( *pml4_t != NULL)
+  if( pml4_t != -1)
   {
- 	 memset((void *)pml4_t, 0, 4096);
-
- 	 kernal_map(kernbase+(uint64_t)physbase, (uint64_t)physbase,pml4_t);
- 	 //video_map(kernbase+(uint64_t)0xb8000, (uint64_t)0xb8000,pml4);
- //pa_to_va_map(kernbase, physbase);
-
+    kprintf("base address is : %p\n", pml4_t);
+ 	  memset(pml4_t, 0, 4096);
+    kprintf("value at %p is %d\n", pml4_t, *((char *)pml4_t));
+ 	  kernal_map(kernbase+(uint64_t)physbase, (uint64_t)physbase, pml4_t);
+ 	  video_map(kernbase+(uint64_t)0xb8000, (uint64_t)0xb8000,pml4_t);
   }
-	kprintf("loading address %p in cr3\n", pml4_t);
+	//kprintf("loading address %p in cr3\n", *pml4_t);
 	//kprintf("address : %p", *(((uint64_t *)0x212000)) + 0x1);
 	//for(uint64_t k = 0; k < 0x000; k+=0x1000)
-	//	va_to_pa(kernbase+(uint64_t) physbase + k, (uint64_t) physbase+ k, pml4);
+	va_to_pa(kernbase+(uint64_t) physbase, (uint64_t) physbase, pml4_t);
  	//va_to_pa(kernbase+(uint64_t) 0x201233, (uint64_t) 0x201233, pml4_t);
-	//__asm__ volatile("mov %0, %%cr3"::"b"(pml4));
+  pml4 kcr3 = pml4_t << 12;
+  kprintf("loading %p\n", kcr3);
+	__asm__ volatile("mov %0, %%cr3"::"b"(kcr3));
   //initialize_idt();
 
   //PIC_remap(32,40);
