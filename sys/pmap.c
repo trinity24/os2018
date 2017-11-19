@@ -171,6 +171,8 @@ void kernal_map(uint64_t kernbase, uint64_t physbase,pml4 pml4_t)
 void video_map(uint64_t vm_va, uint64_t vmbase,pml4 pml4_t)
 {
   page_table_walk(vmbase,vm_va,pml4_t);
+	page_table_walk(vmbase+1*(PAGESIZE),vm_va+1*(PAGESIZE),pml4_t);
+	page_table_walk(vmbase+2*(PAGESIZE),vm_va+2*(PAGESIZE),pml4_t);
   return;
 }
 void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
@@ -180,22 +182,24 @@ void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 	uint64_t pde_i = extract_bits_from_va(va, 21);
 	uint64_t pte_i = extract_bits_from_va(va, 12);
 	if( *((pml4 *)pml4_t + pml4_i) & 0x3){
-		pdp pdp_t = *((pml4 *)pml4_t + pml4_i) >> 12;
+		//pdp pdp_t = *((pml4 *)pml4_t + pml4_i) >> 12;
+		pdp pdp_t = *((pml4 *)pml4_t + pml4_i) & 0xfffffffffffff000;
 		if( *((pdp *)pdp_t + pdpe_i) & 0x3){
-			pd pd_t = *((pdp *)pdp_t + pdpe_i) >> 12;
-
+			//pd pd_t = *((pdp *)pdp_t + pdpe_i) >> 12;
+			pd pd_t = *((pdp *)pdp_t + pdpe_i) & 0xfffffffffffff000;
 			if(*((pd *)pd_t + pde_i) & 0x3){
-					pt pt_t = *((pd *)pd_t + pde_i) >> 12;
-					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					//pt pt_t = *((pd *)pd_t + pde_i) >> 12;
+					pt pt_t = *((pd *)pd_t + pde_i) & 0xfffffffffffff000;
+					*((pt *)pt_t + pte_i) = pa | 0x3;
 					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
 			}else{
 				//create pt
 				pt pt_t = page_alloc();
 				if(pt_t != -1){
 					memset(pt_t, 0, 4096);
-					*((pd *)pd_t + pde_i) = (pt_t << 12) | 0x3;
+					*((pd *)pd_t + pde_i) = pt_t | 0x3;
 
-					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					*((pt *)pt_t + pte_i) = pa | 0x3;
 					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
 				}else{
 					kprintf("Ran out of free memory\n");
@@ -210,9 +214,9 @@ void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 				pt pt_t = page_alloc();
 				if(pt_t != -1){
 					memset(pt_t, 0, 4096);
-					*((pd *)pd_t + pde_i) = (pt_t << 12) | 0x3;
+					*((pd *)pd_t + pde_i) = pt_t | 0x3;
 
-					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					*((pt *)pt_t + pte_i) = pa | 0x3;
 					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
 				}else{
 					kprintf("Ran out of free memory\n");
@@ -227,19 +231,21 @@ void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 		pdp pdp_t = page_alloc();
 		if(pdp_t != -1){
 			memset(pdp_t, 0, 4096);
-			*((pml4 *)pml4_t + pml4_i) = (pdp_t << 12) | 0x3;
+			//*((pml4 *)pml4_t + pml4_i) = (pdp_t << 12) | 0x3;
+			*((pml4 *)pml4_t + pml4_i) = pdp_t| 0x3;
 
 			pd pd_t = page_alloc();
 			if(pd_t != -1){
 				memset(pd_t, 0, 4096);
-				*((pdp *)pdp_t + pdpe_i) = (pd_t << 12) | 0x3;
+				//*((pdp *)pdp_t + pdpe_i) = (pd_t << 12) | 0x3;
+				*((pdp *)pdp_t + pdpe_i) = pd_t | 0x3;
 
 				pt pt_t = page_alloc();
 				if(pt_t != -1){
 					memset(pt_t, 0, 4096);
-					*((pd *)pd_t + pde_i) = (pt_t << 12) | 0x3;
+					*((pd *)pd_t + pde_i) = pt_t| 0x3;
 
-					*((pt *)pt_t + pte_i) = (pa << 12) | 0x3;
+					*((pt *)pt_t + pte_i) = pa | 0x3;
 					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
 				}else{
 					kprintf("Ran out of free memory\n");

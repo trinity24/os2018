@@ -44,11 +44,11 @@ void va_to_pa(uint64_t va, uint64_t pa, pml4 pml4_t){
 	// uint64_t pdp_e = (*((uint64_t *)(pml4_e + pdpe_i))) >> 12;
 	// uint64_t pd_e = (*((uint64_t *)(pdp_e + pde_i))) >> 12;
 	// uint64_t pt_e = *((uint64_t *)pd_e + pte_i) >> 12;
-  pdp pdp_b = *((pml4 *)pml4_t + pml4_i) >> 12;
-  pd pd_b = *((pdp *)pdp_b + pdpe_i) >> 12;
-  pt pt_b = *((pd *)pd_b + pde_i) >> 12;
-  uint64_t pya = *((pt *)pt_b + pte_i) >> 12;
-	kprintf("va : %p to pa : %p\n", va, pya);
+  pdp pdp_b = *((pml4 *)pml4_t + pml4_i) & 0xfffffffffffff000;
+  pd pd_b = *((pdp *)pdp_b + pdpe_i) & 0xfffffffffffff000;
+  pt pt_b = *((pd *)pd_b + pde_i) & 0xfffffffffffff000;
+  uint64_t pya = *((pt *)pt_b + pte_i) & 0xfffffffffffff000;
+	kprintf("va : %p to pa : %p\n", va, pya+extract_bits_frm_va(va, 0));
 	//kprintf("%p %p %p %p\n", pml4_e, pdp_e, pd_e, pt_e + extract_bits_frm_va(va, 0));
 }
 
@@ -108,11 +108,14 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
 	//kprintf("loading address %p in cr3\n", *pml4_t);
 	//kprintf("address : %p", *(((uint64_t *)0x212000)) + 0x1);
 	//for(uint64_t k = 0; k < 0x000; k+=0x1000)
-	va_to_pa(kernbase+(uint64_t) physbase, (uint64_t) physbase, pml4_t);
+	va_to_pa(kernbase+(uint64_t) 0xB9843, (uint64_t) 0xB9843, pml4_t);
  	//va_to_pa(kernbase+(uint64_t) 0x201233, (uint64_t) 0x201233, pml4_t);
-  pml4 kcr3 = pml4_t << 12;
+  pml4 kcr3 = pml4_t;
   kprintf("loading %p\n", kcr3);
 	__asm__ volatile("mov %0, %%cr3"::"b"(kcr3));
+  setNewVideoCardAddresses();
+  kprintf("After loadin\n");
+  //kprintf("after loading the value in cr3\n");
   //initialize_idt();
 
   //PIC_remap(32,40);

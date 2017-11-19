@@ -4,5 +4,6 @@
 void kprintf(const char *fmt, ...);
 void initScreen();
 void scroll();
+void setNewVideoCardAddresses();
 
 #endif

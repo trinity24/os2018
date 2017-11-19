@@ -1,5 +1,5 @@
 #include <sys/defs.h>
-#define PHYSFREE 0x20C000
+#define PHYSFREE 0x20B000
 #define PHYSBASE 0X200000
 
 #define PAGESIZE 4096

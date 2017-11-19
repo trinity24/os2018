@@ -2,12 +2,20 @@
 //#include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#define kernbase 0xffffffff80000000
 
 enum dataTypes {character, integer, hex, string, pointer};
 #define BUFFER 256
 volatile char *videoCardEnd = (volatile char *)0xB8FA0;
 volatile char *videoCardStart = (volatile char *)0xB8000;
 volatile char *videoCardPosition = (volatile char *)0xB8000;
+
+void setNewVideoCardAddresses(){
+	videoCardEnd = (volatile char *)0xFFFFFFFF800B8FA0;
+	videoCardStart = (volatile char *)0xFFFFFFFF800B8000;
+	videoCardPosition = kernbase + videoCardPosition;
+}
+
 int scrollForNextCall = 0;
 
 /*int maxof(int n_args, ...){
@@ -137,12 +145,12 @@ void kprintf(const char *fmt, ...) {
 
 	/*__asm__ (
 	  //int funcname(int arg1, int *arg2, int arg3)
-		//"int $0x80"         make the request to the OS 
-	  //: "=a" (res),       return result in eax ("a") 
-	  //  "+b" (arg1),      pass arg1 in ebx ("b") 
-	  //  "+c" (arg2),      pass arg2 in ecx ("c") 
+		//"int $0x80"         make the request to the OS
+	  //: "=a" (res),       return result in eax ("a")
+	  //  "+b" (arg1),      pass arg1 in ebx ("b")
+	  //  "+c" (arg2),      pass arg2 in ecx ("c")
 	  //  "+d" (arg3)       pass arg3 in edx ("d")
-	  //: "a"  (128)        pass system call number in eax ("a") 
+	  //: "a"  (128)        pass system call number in eax ("a")
 	  //: "memory", "cc"
 		mov	al, 0x0f		//; Cursor location low byte index
 		mov	dx, 0x03D4	//; Write it to the CRT index register
@@ -151,7 +159,7 @@ void kprintf(const char *fmt, ...) {
 	 	mov	al, bl			//; The current location is in EBX. BL contains the low byte, BH high byte
 		mov	dx, 0x03D5	//; Write it to the data register
 		out	dx, al			//; low byte
-		
+
 		);*/
 		videoCardPosition = video;
 		if(videoCardPosition >= videoCardEnd) {
