@@ -8,6 +8,7 @@
 #include <sys/idt.h>
 #include <sys/pmap.h>
 #include <sys/pic.h>
+#include <sys/task.h>
 //#include <mem.h>
 #define kernbase 0xffffffff80000000
 #define INITIAL_STACK_SIZE 4096
@@ -15,8 +16,123 @@
 uint8_t initial_stack[INITIAL_STACK_SIZE]__attribute__((aligned(16)));
 uint32_t* loader_stack;
 extern uint64_t kernmem, physbase,physfree;
+void k_thread1();
+void k_thread2();
+uint64_t *currsp;
 //extern uint64_t pml4;
 //void *kernbase, *kernfree;
+
+void k_thread3(){
+  return;
+}
+
+void k_thread1(){
+  void (*fun_ptr)() = &k_thread2;
+  void (*fun_ptr2)() = &k_thread1;
+  pcb *p1 = (pcb *)page_alloc();
+  pcb *p2 = (pcb *)page_alloc();
+  memset((uint64_t)p1, 0, sizeof(struct pcb));
+  memset((uint64_t)p2, 0, sizeof(struct pcb));
+  p1->kstack[127] = (uint64_t)fun_ptr;
+  p2->kstack[127] = (uint64_t)fun_ptr2;
+  uint64_t *currsp = &(p2->kstack[127]);
+  __asm__ volatile(
+    "\
+      movq %0, %%rsp;\
+      pushq %%rax; \
+      pushq %%rbx; \
+      pushq %%rcx; \
+      pushq %%rdx; \
+      pushq %%rsi; \
+      pushq %%rdi; \
+      pushq %%rbp; \
+      movq %0, %%rax;\
+    "
+    :
+    :"m" (currsp)
+    : "%rsp"
+  );
+  kprintf("Hello world\n");
+  uint64_t *sp = &(p1->kstack[121]);
+  kprintf(" value of currsp is : %p\n", currsp);
+  __asm__ volatile(
+    "\
+      movq %0, %%rsp;\
+      popq %%rbp; \
+      popq %%rdi; \
+      popq %%rsi; \
+      popq %%rdx; \
+      popq %%rcx; \
+      popq %%rbx; \
+      ret\
+    "
+    :
+    :"m" (sp)
+    : "%rsp"
+  );
+  //kprintf("currsp after pushing %p\n", currsp);
+  kprintf("nextsp %p\n", sp);
+}
+
+/*pushq %%rax; \
+pushq %%rbx; \
+pushq %%rcx; \
+pushq %%rdx; \
+pushq %%rsi; \
+pushq %%rdi; \
+pushq %%rbp; \*/
+
+/*popq %%rbp; \
+popq %%rdi; \
+popq %%rsi; \
+popq %%rdx; \
+popq %%rcx; \
+popq %%rbx; \
+popq %%rax; \*/
+
+void k_thread2(){
+  kprintf("In kthread2\n");
+  __asm__ volatile(
+    "\
+      pushq %%rax; \
+      pushq %%rbx; \
+      pushq %%rcx; \
+      pushq %%rdx; \
+      pushq %%rsi; \
+      pushq %%rdi; \
+      pushq %%rbp; \
+    "
+    ::
+  );
+  uint64_t *sp;
+  __asm__ volatile(
+    "\
+      movq %%rax, %0;\
+    "
+    : "=m" (currsp)
+    :
+  );
+  kprintf("currsp is %p\n", currsp);
+  __asm__ volatile(
+    "\
+      movq %%rsp, %0;\
+      movq %1, %%rsp;\
+      popq %%rbp; \
+      popq %%rdi; \
+      popq %%rsi; \
+      popq %%rdx; \
+      popq %%rcx; \
+      popq %%rbx; \
+      popq %%rax; \
+      ret\
+    "
+    :"=m" (sp)
+    :"m" (currsp)
+    : "%rsp"
+  );
+  while(1);
+}
+
 
 uint64_t extract_bits_frm_va(uint64_t virtual_address, int start)
 {
@@ -34,22 +150,16 @@ uint64_t extract_bits_frm_va(uint64_t virtual_address, int start)
   else
    return (virtual_address) & 0xFFF;
 }
-
 void va_to_pa(uint64_t va, uint64_t pa, pml4 pml4_t){
 	uint64_t pml4_i = extract_bits_frm_va(va, 39);
 	uint64_t pdpe_i = extract_bits_frm_va(va, 30);
 	uint64_t pde_i = extract_bits_frm_va(va, 21);
 	uint64_t pte_i = extract_bits_frm_va(va, 12);
-	// uint64_t pml4_e = (*((uint64_t *)(pml4a + pml4_i))) >> 12;
-	// uint64_t pdp_e = (*((uint64_t *)(pml4_e + pdpe_i))) >> 12;
-	// uint64_t pd_e = (*((uint64_t *)(pdp_e + pde_i))) >> 12;
-	// uint64_t pt_e = *((uint64_t *)pd_e + pte_i) >> 12;
   pdp pdp_b = *((pml4 *)pml4_t + pml4_i) & 0xfffffffffffff000;
   pd pd_b = *((pdp *)pdp_b + pdpe_i) & 0xfffffffffffff000;
   pt pt_b = *((pd *)pd_b + pde_i) & 0xfffffffffffff000;
   uint64_t pya = *((pt *)pt_b + pte_i) & 0xfffffffffffff000;
 	kprintf("va : %p to pa : %p\n", va, pya+extract_bits_frm_va(va, 0));
-	//kprintf("%p %p %p %p\n", pml4_e, pdp_e, pd_e, pt_e + extract_bits_frm_va(va, 0));
 }
 
 void start(uint32_t *modulep, void *physbase, void *physfree)
@@ -83,13 +193,15 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
 		//num_pages+=k;
 		}*/
 	//else num_pages=(smap->length)/page_size;
-	kprintf("Available Physical Memory [%p-%p]\n", smap->base, smap->base + smap->length);
-	a=smap->base;b=smap->length;
+	   kprintf("Available Physical Memory [%p-%p]\n", smap->base, smap->base + smap->length);
+	   a=smap->base;b=smap->length;
     }
   }
 	kprintf("%p\n",a+b);
-
+  kprintf("The space taken will be : %d\n", ((a+b)/4096) * sizeof(struct Page) / 4096);
 	num_pages=create_list(a+b,(uint64_t)physfree);
+  c_n_l(a+b,(uint64_t)physfree);
+  //create_list_n(a+b,(uint64_t)physfree);
 	//kprintf("before this`");
 	kprintf("Available memory pages: %d\n",num_pages);
   kprintf("physfree %p and physbase %p\n", (uint64_t)physfree,(uint64_t)physbase);
@@ -99,47 +211,25 @@ while(modulep[0] != 0x9001) modulep += modulep[1]+2;
  	//kprintf("pml4 is %p \n",(uint64_t)pml4);
   if( pml4_t != -1)
   {
-    kprintf("base address is : %p\n", pml4_t);
+    //kprintf("base address is : %p\n", pml4_t);
  	  memset(pml4_t, 0, 4096);
-    kprintf("value at %p is %d\n", pml4_t, *((char *)pml4_t));
+    //kprintf("value at %p is %d\n", pml4_t, *((char *)pml4_t));
  	  kernal_map(kernbase+(uint64_t)physbase, (uint64_t)physbase, pml4_t);
  	  video_map(kernbase+(uint64_t)0xb8000, (uint64_t)0xb8000,pml4_t);
   }
-	//kprintf("loading address %p in cr3\n", *pml4_t);
-	//kprintf("address : %p", *(((uint64_t *)0x212000)) + 0x1);
-	//for(uint64_t k = 0; k < 0x000; k+=0x1000)
-	va_to_pa(kernbase+(uint64_t) 0xB9843, (uint64_t) 0xB9843, pml4_t);
+  //uint64_t lh= get_free_list_head();
+  map_va_to_pa(kernbase+(uint64_t)physfree, (uint64_t)physfree,pml4_t);
+  k_thread1();
+  kprintf("Hello world\n");
+  //k_thread1();
  	//va_to_pa(kernbase+(uint64_t) 0x201233, (uint64_t) 0x201233, pml4_t);
-  pml4 kcr3 = pml4_t;
-  kprintf("loading %p\n", kcr3);
-	__asm__ volatile("mov %0, %%cr3"::"b"(kcr3));
-  setNewVideoCardAddresses();
-  kprintf("After loadin\n");
-  //kprintf("after loading the value in cr3\n");
-  //initialize_idt();
+  //pml4 kcr3 = pml4_t;
+	//__asm__ volatile("mov %0, %%cr3"::"b"(kcr3));
+  //pml4 x = page_alloc();
+  //kprintf("x %p\n", x);
 
-  //PIC_remap(32,40);
- // __asm__("sti");
 
-    // uint8_t bus;
-     //uint8_t device;
-    // for(bus = 0; bus < 32; bus++) {
-    //     for(device = 0; device < 255; device++) {
-    //        if( checkAHCI(bus, device)){
-		//goto x;
-		//}
-
-      //   }
-     //}
-//x:
-//	uint32_t base1;
-//	base1=get_AHCIBASE(bus,device);
-//	ahci(base1);
-
-while(1)
-{
-
-}
+  while(1);
 }
 
 void boot(void)

@@ -1,5 +1,5 @@
 #include <sys/defs.h>
-#define PHYSFREE 0x20B000
+#define PHYSFREE 0x20C000
 #define PHYSBASE 0X200000
 
 #define PAGESIZE 4096
@@ -10,7 +10,7 @@ struct Page {
 	struct Page *next;
 
 };
- struct Page *free_list;//.=NULL;
+//struct Page *free_list;//.=NULL;
 #define ALLOCATED 1
 #define FREE 0
 
@@ -57,3 +57,10 @@ uint64_t page_alloc();
 void set_page_free(int page);
 
 int is_free(int page);
+
+void print_free_list_head();
+//void va_to_pa(uint64_t , uint64_t , pml4);
+void map_va_to_pa(uint64_t , uint64_t ,pml4 );
+uint64_t get_free_list_head();
+uint64_t s_next_page(uint64_t);
+void c_n_l( uint64_t , uint64_t );

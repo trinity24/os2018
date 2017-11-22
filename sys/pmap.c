@@ -5,8 +5,9 @@
 #include <stdlib.h>
 //#include <string.h>
 
-
-
+static struct Page *free_list;
+struct Page *next_free_page;
+static uint64_t fp;
 
 int create_list( uint64_t end, uint64_t physfree)
 {
@@ -15,17 +16,25 @@ int create_list( uint64_t end, uint64_t physfree)
 	uint64_t  p=0,f=0;
 	//	struct Page *prev=NULL;
 	uint64_t paddr=0;
+	//struct Page *page_free_head = NULL;
 	struct Page *pages=(struct Page *)(physfree);
 	uint64_t max= end/4096;
 	struct Page *temp;
+	uint64_t i = 0;
+	uint64_t size_of_free_list = (end / 4096) * sizeof(struct Page);
+	uint64_t number_of_pages_fl = (size_of_free_list) / PAGESIZE;
 //	uint64_t size_of_list =((sizeof(struct Page))*(availablememory)/4096);
 	//kprintf("coming into this with end as %p\n",end);
-	for(uint64_t i=0;i<max-1;i++)
+	kprintf("amount of pages required to store free list : %d \n",(end / 4096) * sizeof(struct Page) / 4096);
+	kprintf("number of pages for fl %p\n", number_of_pages_fl);
+	kprintf("req val is : %p\n", physfree + number_of_pages_fl * PAGESIZE);
+	for(i=0;i<max-1;i++)
 	{
 		p++;
 		//(struct Page *)
 		(pages+i*(sizeof(struct Page)))->id = paddr+i*PAGESIZE;
-		if( paddr+i*PAGESIZE<(physfree+3*(4096)) ){
+		if( paddr+i*PAGESIZE<(physfree + number_of_pages_fl * PAGESIZE) ){
+		//if( paddr+i*PAGESIZE<(physfree+size_of_free_list) ){
 			//(struct Page *)
 			(pages+i*(sizeof(struct Page)))->status = ALLOCATED;
 			//(struct Page *)
@@ -33,14 +42,10 @@ int create_list( uint64_t end, uint64_t physfree)
 		}
 		else
 		{
-//			kprintf("%d is the f \n",f);
-	/*
-			if(paddr + i*PAGESIZE == PHYSFREE)
+			if(f==0)
 			{
-				(struct Page *)(pages+i*(sizeof(struct Page)))->next =NULL;
-		*/	if(f==0)
-			{
-
+				//kprintf("%p    %p\n", paddr+i*PAGESIZE, physfree + number_of_pages_fl * PAGESIZE);
+				//kprintf("Page at %p stored at %p\n",paddr+i*PAGESIZE,(pages+i*(sizeof(struct Page))));
 				free_list= (pages+i*(sizeof(struct Page)));
 				(pages+i*(sizeof(struct Page)))->status = FREE;
 				(pages+i*(sizeof(struct Page)))->id =paddr+i*PAGESIZE;
@@ -65,11 +70,26 @@ int create_list( uint64_t end, uint64_t physfree)
 		}
 	}
 	//kprintf("%d is the number of free_pages\n",f);
-
-	kprintf("Free list at the end of create_list is %p \n",free_list);
+	kprintf("The last page structure is stored at %p\n", (pages+(i - 1)*(sizeof(struct Page))));
+	kprintf("Free list at the end of create_list is %p \n",*free_list);
 	return p;
 
 }
+
+void c_n_l( uint64_t end, uint64_t physfree){
+	uint64_t num_pages = end/4096;
+	uint64_t size_of_fl = num_pages * sizeof(struct Page);
+	//uint64_t number_of_pages_fl = size_of_fl/4096;
+	//uint64_t paddr = 0;
+	kprintf("number of pages = %p\n", num_pages);
+	kprintf("size of fl %p\n", size_of_fl);
+	kprintf("number of pages for fl %p\n", size_of_fl/4096);
+}
+// void create_list_n( uint64_t end, uint64_t physfree){
+// 	uint64_t max_pages = end/4096;
+// 	kprintf("Max number of pages is: %p", max_pages);
+// 	return;
+// }
 
 // void memset(void *mem, int val, int len)
 // {
@@ -115,6 +135,24 @@ uint64_t page_alloc()
 		return -1;
 	}
 
+}
+
+uint64_t s_next_page(uint64_t physfree){
+	fp = physfree;
+	uint64_t temp;
+	temp = fp;
+	fp = fp + PAGESIZE;
+	return temp;
+}
+
+uint64_t get_free_list_head(){
+	return (uint64_t)free_list;
+}
+
+void print_free_list_head(){
+	kprintf("Free list head is: %p\n", free_list);
+	next_free_page = free_list->next;
+	kprintf("Next free page: %p\n", next_free_page);
 }
 
 
@@ -175,6 +213,23 @@ void video_map(uint64_t vm_va, uint64_t vmbase,pml4 pml4_t)
 	page_table_walk(vmbase+2*(PAGESIZE),vm_va+2*(PAGESIZE),pml4_t);
   return;
 }
+void map_va_to_pa(uint64_t va, uint64_t base,pml4 pml4_t)
+{
+	//kprintf("Trying to map %p to %p", va, base);
+	//kprintf("Trying to map %p, num pages = %d\n", base, (pml4_t - base)/4096);
+	int num_pages;
+	num_pages = (pml4_t - base)/PAGESIZE;
+	for(int i = 0; i < num_pages; i++){
+		//kprintf("Trying to map %p to %p", va, base);
+		page_table_walk(base,va,pml4_t);
+		va=va+PAGESIZE;
+		base=base+PAGESIZE;
+	}
+  //page_table_walk(base,va,pml4_t);
+  return;
+}
+
+
 void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 {
 	uint64_t pml4_i = extract_bits_from_va(va, 39);
@@ -194,6 +249,7 @@ void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 					//kprintf("%p %p %p %p %p\n", pml4_t, *((pml4 *)pml4_t + pml4_i), *((pdp *)pdp_t + pdpe_i), *((pd *)pd_t + pde_i), *((pt *)pt_t + pte_i));
 			}else{
 				//create pt
+				//kprintf("page allocated is %p\n",s_next_page()
 				pt pt_t = page_alloc();
 				if(pt_t != -1){
 					memset(pt_t, 0, 4096);
@@ -260,84 +316,3 @@ void page_table_walk(uint64_t pa, uint64_t va,pml4 pml4_t)
 	return;
 
 }
-
-
-/*
-void page_table_walk(uint64_t pa, uint64_t va)
-{
-	uint64_t virtual_address =va;
-	uint64_t pml4_index = extract_bits_from_va(virtual_address,39,47);
-	kprintf("%d",pml4_index);
-
-	if((pml4 *)pml4->pml4_entries[pml4_index]&0x01)
-	{
-		//if pml4 entry for the index is present
-
-		uint64_t pdp = pml4->pml4_entries[pml4_index];
-		uint64_t pdpt_index = extract_bits_from_va(virtual_address,30,38);
-
-		if((pdp *)pdp->pdp_entries[pdpt_index]&01)
-		{
-			uint64_t pd = pdp[pdpt_index];
-		  	uint64_t pde_index = extract_bits_from_va(virtual_address,21,29);
-			if((pd *)pd->pd_entries[pdpt_index]&01)
-			{
-				uint64_t pt = pd[pde_index];
-				uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-				(pd *)pt->pt_entries[pte_index]  = pa;
-			}
-			else
-			{
-				uint64_t pt= page_alloc();
-				memset(pt, 0, 4096);
-				(pd *)pd->pd_entries[pde_index]= pt|3;
-
-				uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-				(pt *)pt->pt_entries[pte_index]  = pa;
-			}
-		}
-		else
-		{
-			uint64_t pd= page_alloc();
-			memset(pd, 0, 4096);
-			((pdp *)pdp)->pdp_entries[pdpt_index] = pd|3;
-			uint64_t pde_index = extract_bits_from_va(virtual_address,21,29);
-			uint64_t pt= page_alloc();
-			memset(pt, 0, 4096);
-			(pd *)pd->pd_entries[pde_index]= pt|3;
-
-			uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-			(pt *)pt->pt_entries[pte_index]  = pa;
-		}
-	}
-	else
-	{
-		//make a pagedirectory pounter table;
-		//fill in the pml4 entry with that
-		uint64_t pdp=page_alloc();
-		memset(pdp, 0, 4096);
-		((pml4 *)pml4)->pml4_entries[pml4_index] = pdp|3;
-		//now fill in the pdpt entry.
-		uint64_t pdpt_index = extract_bits_from_va(virtual_address,30,38);
-		kprintf("%d",pdpt_index);
-
-		uint64_t pd= page_alloc();
-		memset(pd, 0, 4096);
-
-		((pdp *)pdp)->pdp_entries+pdpt_index = pd|3;
-		uint64_t pde_index = extract_bits_from_va(virtual_address,21,29);
-		kprintf("%d",pde_index);
-		uint64_t pt= page_alloc();
-		memset(pt, 0, 4096);
-		((pd *)pd)->pd_entries[pde_index]= pt|3;
-
-
-		uint64_t pte_index = extract_bits_from_va(virtual_address,12,20);
-		kprintf("%d",pte_index);
-		((pt *)pt)->pt_entries[pte_index]  = pa;
-	}
-
-
-	return;
-}*/
-//#include<stdio.h>
