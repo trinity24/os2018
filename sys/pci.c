@@ -1,5 +1,5 @@
 #include <sys/pci.h>	
-#include <sys/kprintf.h>
+#include <sys/kprintf1.h>
 #include <sys/defs.h>
 void write_to_pci( uint32_t address);
 void write_to_data();

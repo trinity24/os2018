@@ -1,6 +1,6 @@
 //#include <system.h>
 #include <sys/defs.h>
-#include <sys/kprintf.h>
+#include <sys/kprintf1.h>
 
 unsigned char kb_code[128] =
 {

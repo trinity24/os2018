@@ -1,4 +1,4 @@
-#include <sys/kprintf.h>
+#include <sys/kprintf1.h>
 #include <sys/ahci.h>
 typedef uint8_t BYTE;
 #define AHCI_BASE 0x500000        // 4M

@@ -1,5 +1,6 @@
-#include <sys/kprintf.h>
+#include <sys/kprintf1.h>
 #include <sys/defs.h>
+#include <sys/process.h>
 #include <sys/pic.h>
 //#define cs 0x00180000000000
 struct idt_entry  {
@@ -153,14 +154,10 @@ void interrupt_call(uint64_t num)
 }
 extern inline void load_idt(struct idt_ptr *idt_pt)
 {
-		/*/"movq %1,%%rax\n\t"
-	__asm__("movl %esp,(%eax)\n\t"
-		"lidt 0x04(%eax)\n\t"
-		"ret");
-	      */  
 	  __asm__ volatile ("lidt %0" ::"m"(*(idt_pt)));
-//	kprintf("here is the idt_ptr - %p \n",idt_pt);
+
 }
+//extern void isr14();
 extern void isr32();
 //void *memset(void *ptr, int x, size_t n);
 void hollow_timer()
@@ -170,59 +167,18 @@ __asm__("iretq;");
 }
 //nn/static uint64_t countTimer=0;/*
 /*
-void isr_timer()
-{
-//	static uint64_t countTimer=0;//, sec=0,min=0,hour=0;
-	isr32();
-	__asm__("cli\n\t"
-		  "push %%rdi\n\t"
-   		  "push %%rsi\n\t"
-  		  "push %%rbp\n\t"
-  		  "push %%rsp\n\t"
-  		  "push %%rbx\n\t"
-   		  "push %%rdx\n\t"
-  		  "push %%rcx\n\t"
-   		  "push %%rax\n\t"
-		  "movq %1,%%rax\n\t"
-   	          "add $1,%%rax\n\t"
-   		  "movq %%rax, %0\n\t"
-	          "pop %%rax\n\t"
-  	       	  "pop %%rcx\n\t"
-   		  "pop %%rdx\n\t"
-		  "pop %%rbx\n\t"
-   		  "pop %%rsp\n\t"
-  		  "pop %%rbp\n\t"
-  		  "pop %%rsi\n\t"
- 		  "pop %%rdi\n\t"
- 		  "add %%rsp,8\n\t"
-  		  "sti\n\t"
-  		  "iret" :"=r"(countTimer):"r"(countTimer));
-}
-	kprintf("%d is the countTimer\n",countTimer);	
-	if(countTimer>18)
-	{
-            sec++;
-	    if(sec>60){
-		sec=0;
-		min++;
-		if(min>60){
-			min=0;
-			hour++;
-			if(hour>24){
-				sec=0;min=0;hour=0;
-			}
-		}
-	     }
-	}		
+
 	*/
 
+extern void isr80();
 extern void isr33();
+extern void isr14();
  void timer()
 { 
-	print_time(11);      
+//	print_time(11);      
         static int countTimer=0,sec=0;
         countTimer++;
-	//kprintf("Seconds is %d\n",countTimer);
+	kprintf_k("Seconds is %d\n",countTimer);
         if(countTimer>18)
         {   
 		sec++;
@@ -233,25 +189,14 @@ extern void isr33();
 	}
 	
 	PIC_sendEOI(0);
-	/*
-            if(sec>60){
-		video++;
-                sec=0;
-                min++;
-		kprintf("sec : %d ",sec);
-		video--;
-                if(min>60){
-                        min=0;
-                        hour++;
-			
-                        if(hour>24){
-                                sec=0;min=0;hour=0;
-                 */
-} 
+}
+ 
 void default_intr()
 {
-	kprintf("you are using other interrupts");
-	return;
+	
+	kprintf_k("you are using other interrupts");
+	while(1);
+	
 }
 struct idt_entry idt_ent[256];
 void idt_set(uint8_t index, uint64_t base, uint16_t selector, uint8_t type_att);
@@ -265,15 +210,17 @@ void initialize_idt()
 	idt.limit=lim; //so, the table idt 
 	idt.base=(uint64_t)(idt_ent);
 	//kprintf("%d - %d are limit and base\n",idt.base,idt.limit);
-	for(int i=0;i<32;i++)
+	for(int i=0;i<256;i++)
 	{
 		idt_set(i,(uint64_t)(&default_intr),0x80,0x8E);
-	
+		
 	}
 	
 	//memset(&idt_ent, 0, sizeof(idt_ent)*256); //setting all the values of the idt to 0; Now we can configure each required one starting from 32
 	idt_set(32,(uint64_t )isr32,0x08,0x8E);	
 	idt_set(33,(uint64_t)isr33,0x08,0x8E);
+	idt_set(14,(uint64_t)isr14,0x08,0x8E);
+	//idt_set(80, (uint64_t)isr80, 0x08, 0x8E);
 	load_idt(&idt);	
 	return;
 		
