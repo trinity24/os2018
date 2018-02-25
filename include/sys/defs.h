@@ -12,6 +12,11 @@ typedef          short  int16_t;
 typedef unsigned char   uint8_t;
 typedef          char    int8_t;
 
+typedef uint64_t pml4;
+typedef uint64_t pdp;
+typedef uint64_t pd;
+typedef uint64_t pt;
+
 typedef uint64_t size_t;
 typedef int64_t ssize_t;
 

@@ -4,7 +4,11 @@
   3) creates an ISO CD image with the rootfs/ contents
 
 * To boot the system in QEMU, run:
+<<<<<<< HEAD
 qemu-system-x86_64 -curses -drive id=boot,format=raw,file=$USER.img,if=none -drive id=data,format=raw,file=$USER-data.img,if=none -device ahci,id=ahci -device ide-drive,drive=boot,bus=ahci.0 -device ide-drive,drive=data,bus=ahci.1 -gdb tcp::9999
+=======
+qemu-system-x86_64 -curses -drive id=boot,format=raw,file=sduppala.img,if=none -drive id=data,format=raw,file=sduppala-data.img,if=none -device ahci,id=ahci -device ide-drive,drive=boot,bus=ahci.0 -device ide-drive,drive=data,bus=ahci.1 -gdb tcp::9999
+>>>>>>> a8239b0dde5ec09a5bd67480c54d2d85c9216ebd
 
 Explanation of parameters:
   -curses         use a text console (omit this to use default SDL/VNC console)

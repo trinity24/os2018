@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
 void _start(void) {
-  // call main() and exit() here
+  main(0,NULL, NULL); //and 
+	//exit() ;//here
 }

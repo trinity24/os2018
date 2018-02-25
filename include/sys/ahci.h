@@ -1,21 +1,9 @@
+
+#include <sys/defs.h>
 #ifndef _AHCI_H
 #define _AHCI_H
-
-#define HBA_GHC_AE     (1U << 31)
 #define HBA_GHC_IE     (1U << 1)
 #define HBA_GHC_HR     (1U)
-
-#define HBA_PxCMD_ST   (1U)
-#define HBA_PxCMD_CLO  (1U << 3)
-#define HBA_PxCMD_FRE  (1U << 4)
-#define HBA_PxCMD_FR   (1U << 14)
-#define HBA_PxCMD_CR   (1U << 15)
-#define HBA_PxIS_TFES  (1U << 30)
-
-#define AHCI_DEV_SATA   0x00000101  // SATA drive
-#define AHCI_DEV_SATAPI 0xEB140101  // SATAPI drive
-#define AHCI_DEV_SEMB   0xC33C0101  // Enclosure management bridge
-#define AHCI_DEV_PM     0x96690101  // Port multiplier
 
 #define ATA_STATUS_ERR  0x01 // Indicates an error occurred. Send a new command to clear it (or nuke it with a Software Reset).
 #define ATA_STATUS_DRQ  0x08 // Set when the drive has PIO data to transfer, or is ready to accept PIO data.
@@ -23,13 +11,41 @@
 #define ATA_STATUS_DF   0x20 // Drive Fault Error (does not set ERR).
 #define ATA_STATUS_RDY  0x40 // Bit is clear when drive is spun down, or after an error. Set otherwise.
 #define ATA_STATUS_BSY  0x80 // Indicates the drive is preparing to send/receive data (wait for it to clear).
-                             // In case of 'hang' (it never clears), do a software reset.
+
+#define SATA_SIG_ATA    0x00000101  // SATA drive
+#define SATA_SIG_ATAPI  0xEB140101  // SATAPI drive
+#define SATA_SIG_SEMB   0xC33C0101  // Enclosure management bridge
+#define SATA_SIG_PM 0x96690101  // Port multiplier
+
+#define AHCI_DEV_NULL 0
+#define AHCI_DEV_SATA 1
+#define AHCI_DEV_SATAPI 4
+#define AHCI_DEV_SEMB 2
+#define AHCI_DEV_PM 3
+
+#define HBA_PORT_DET_PRESENT 3
+#define HBA_PORT_IPM_ACTIVE 1
+
+#define HBA_PxCMD_CR            (1 << 15) /* CR - Command list Running */
+#define HBA_PxCMD_FR            (1 << 14) /* FR - FIS receive Running */
+#define HBA_PxCMD_FRE           (1 <<  4) /* FRE - FIS Receive Enable */
+#define HBA_PxCMD_SUD           (1 <<  1) /* SUD - Spin-Up Device */
+#define HBA_PxCMD_ST            (1 <<  0) /* ST - Start (command processing) */
+
+#define ATA_DEV_BUSY 0x80
+#define ATA_DEV_DRQ 0x08
+
+#define HBA_PxIS_TFES   (1 << 30)       /* TFES - Task File Error Status */
+#define ATA_CMD_READ_DMA_EX     0x25
+#define ATA_CMD_WRITE_DMA_EX     0x35                             // In case of 'hang' (it never clears), do a software reset.
 
 #define CMD_FIS_DEV_LBA (1U << 6)
 
 #define MAX_CMD_SLOT_CNT 32
 #define MAX_PORT_CNT     32
-
+typedef uint32_t DWORD;
+typedef uint16_t WORD;
+typedef uint8_t BYTE;
 typedef enum {
   FIS_TYPE_REG_H2D = 0x27,   // Register FIS - host to device
   FIS_TYPE_REG_D2H = 0x34,   // Register FIS - device to host
@@ -292,6 +308,7 @@ typedef struct {
 
 typedef volatile struct {
   uint64_t clb;              // 0x00, command list base address, 1K-byte aligned
+  
   uint64_t fb;               // 0x08, FIS base address, 256-byte aligned
   uint32_t is_rwc;           // 0x10, interrupt status
   uint32_t ie;               // 0x14, interrupt enable
@@ -334,4 +351,18 @@ typedef volatile struct {
   hba_port_t ports[MAX_PORT_CNT]; // 1 ~ 32
 }__attribute__((__packed__)) hba_mem_t;
 
+void memset1(void *p,char c,int b);
+// int check_type(hba_port_t *port);
+void start_cmd(hba_port_t *port);
+void stop_cmd(hba_port_t *port);
+int probe_port(hba_mem_t  *abar);
+void port_rebase(hba_port_t *port, int portno);
+int find_cmdslot(hba_port_t *port);
+#define ATA_DEV_BUSY 0x80
+#define ATA_DEV_DRQ 0x08
+int read(hba_port_t *port, DWORD startl, DWORD starth, DWORD count, WORD *buf);
+void ahci(uint32_t abar1);
+
+
+			
 #endif
