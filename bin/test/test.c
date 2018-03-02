@@ -7,9 +7,19 @@
 int  main(int argc, char* argv[], char* envp[])
 {
 	char *string="hello world";
-	
-	//print(string);
-	puts(string);
+	//for(int i=0;i<30;i++)
+	uint64_t pid= MyFork();
+	if(pid==0)
+	{
+		puts("I am child");
+	}
+	else
+	{
+		puts(string);
+	}
+	//puts(string);
+	//puts("successful \n");
+	//puts("sharmila common\n");
 	while(1);
 	return 0;
 }

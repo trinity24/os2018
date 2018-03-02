@@ -19,6 +19,6 @@ struct Regs{
 	uint64_t rdi;
 };
 
-void syscallHandler(struct Regs *regs);
+uint64_t syscallHandler(struct Regs *regs);
 
 #endif

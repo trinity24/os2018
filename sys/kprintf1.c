@@ -114,30 +114,63 @@ void clearscreen_k()
 	}
     }
 }
-
+void scroll_up(int colour)
+{
+	for(int i=0;i<24;i++)
+	{
+		//copy_line
+		
+		char *video_from=(char *)(0xb8000)+((i+1)*160)+KERNBASE;
+	        char *video_to = (char *)(0xb8000)+((i)*160)+KERNBASE;
+		for(int i=0;i<160;i++)
+       		{
+                	*video_to++ =*video_from++;
+        	}
+	}
+        return;
+}
  void write_string_k( int colour, const char *string )
 {
-        int l=0;
-        //printf("writing to the screen\n");
-          static volatile  char *video = (volatile char*)0xB8000+KERNBASE;
-    while( *string )
-    {
-        if(*string=='\n' )
-        {
+      	static volatile  int vertical=1;
+	static volatile int  horizontal=1;
+        static volatile  char *video = (volatile char*)0xB8000+KERNBASE;
+    	if(video == (char*)0xB8000+KERNBASE)
+		clearscreen_k();
+	while( *string )
+    	{
+	
+        	if(*string=='\n' )
+        	{
 
-                video=video+(80-l)*2;
-                string++;
-                l=0;
+                	video=video+(80-vertical+1)*2;
+               	 	string++;
+                	vertical=1;
+			horizontal++;
+        	}
+        	else 
+		{
 
-        }
-        else {
-        l++;
-        if(l > 80)
-           l=0;
-        *video++ = *string++;
-        *video++ = colour;
-        }
-    }
+						
+        		//make sure that you clear the line. 
+			if(vertical > 80)
+			{
+				vertical=1;
+	   			//clearscreen_k();
+				horizontal++;
+        		}
+			if(horizontal >25)
+			{
+				scroll_up(colour);
+				video=(char*)(0xb8000)+24*160+KERNBASE;
+				vertical=1;
+				horizontal=25;
+			}
+			
+			*video++ = *string++;
+        		*video++ = colour;
+			vertical++;
+		}
+    	}
 }
 
 

@@ -64,12 +64,9 @@ uint64_t get_paddr(uint64_t va,pml4 pml4_t)
 }
 int create_list( uint64_t end, uint64_t physfree)
 {
-//	kprintf("Free list at the start of create_list is %p \n",free_list);
 	extern	 struct Page *free_list;
 	uint64_t  p=0,f=0;
-	//	struct Page *prev=NULL;
 	uint64_t paddr=0;
-	//struct Page *page_free_head = NULL;
 	struct Page *pages=(struct Page *)(physfree);
 	uint64_t max= end/4096;
 	struct Page *temp;
@@ -249,8 +246,9 @@ void count_page(uint64_t address)
 {
         uint64_t pa= address-KERNBASE;
         int n=(pa/PAGESIZE); 
-        struct Page* pages = (struct Page*) PHYSFREE;
-	 if (pages[n].status != 1 || pages[n].count == 0)
+        struct Page* pages = (struct Page*) (KERNBASE + PHYSFREE);
+	
+	if (pages[n].status != 1 || pages[n].count == 0)
         {       
                 // TODO : remove this
                 kprintf_k("Count page : Impossible case\n");
@@ -270,6 +268,7 @@ void set_page_free(uint64_t address)
 
         if (pages[n].status != 1 || pages[n].count == 0)
 	{
+		
 		// TODO : remove this
 		kprintf_k("set_page_free : Impossible case\n");
 		while(1);

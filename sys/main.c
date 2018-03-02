@@ -82,10 +82,10 @@ void start(uint32_t *modulep, void *physbase, void *physfree)
     uint64_t x = page_alloc_k();
  kprintf_k("something x = %p\n ",(uint64_t)x);
   //context_switch();
- initialize_idt();
-	__asm__ volatile("sti;");
-// context_switch();
- create_task("bin/test");
+  initialize_idt();
+  //__asm__ volatile("sti;");
+  initialise_tasks();
+  create_task("bin/test");		
 // switch_to_user_mode(); 
  while(1);
   return;

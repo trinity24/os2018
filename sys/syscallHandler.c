@@ -1,7 +1,7 @@
 #include <sys/syscallHandler.h>
 #include <sys/Mysyscalls.h>
 #include <sys/kprintf1.h>
-
+#include <sys/task.h>
 uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count)
 {
 	uint64_t i=0;
@@ -10,12 +10,13 @@ uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count)
 		kprintf_k("%c",buf[i]);
 		i++;
 	}
+
+	schedule();
 	return i;
 }
 
-void syscallHandler(struct Regs *regs)
+uint64_t syscallHandler(struct Regs *regs)
 {
-	kprintf_k("inside syscall handler");
 	switch(regs->rax)
 	{
 		
@@ -25,13 +26,18 @@ void syscallHandler(struct Regs *regs)
 				regs->rax=write_syscall(regs->rbx,(char *)regs->rcx,regs->rdx);
 			
 			break;
-	
-	
+		case 2:
+			regs->rax=fork();	
+			if (curr_task->kstack[511] == 92736)
+			{
+				curr_task->kstack[511] = 0;
+				return 0;
+			}
+			return regs->rax;	
 		
 	}
-	kprintf_k("Coming out of this");
 	
-	return ;	
+	return 0;	
 }
 
 

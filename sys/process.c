@@ -9,9 +9,183 @@
 #include <sys/elf64.h>
 #include <sys/kprintf1.h>
 #include <sys/gdt.h>
-pcb *curr_task;
+
+
+pcb *t1,*t2,*t3;
+pcb all_tasks[1000];
 uint64_t pid=0;
 vm_struct *vm= NULL;
+
+void schedule()
+{       
+	pcb *next_task=NULL;
+	int flag=0;
+	for(int i=(curr_task->pid)+1;i<1000;i++)
+	{
+		if(all_tasks[i].state==RUNNING_P)
+		{
+			flag=1;
+			next_task= &all_tasks[i];
+			break;
+		}
+	}
+	if(!flag)
+	{
+		flag=0;
+		for(int i=0;i<=(curr_task->pid);i++)
+		{
+			 if(all_tasks[i].state==RUNNING_P)
+                	{       
+				flag=1;
+                        	next_task= &all_tasks[i];
+				break;
+                	}
+		}
+	}
+	
+	if(flag)
+	{
+		pcb *temp=curr_task;
+		curr_task=next_task;
+                set_tss_rsp( &curr_task->kstack[510]);
+		if (next_task->kstack[511] == 92736)
+		{
+			next_task->rsp = (uint64_t) &(next_task->kstack[496-8-15]);
+			next_task->kstack[511] = 0;
+		} 
+        	context_switch_routine(temp, next_task);
+	}
+	return;
+}
+
+void tlb_flush()
+{
+	__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");
+}
+
+void initialise_tasks()
+{
+	for(int i=0;i<1000;i++)
+	{
+		all_tasks[i].pid= i;
+	}
+	return;
+}
+pcb* new_task()
+{
+	for(int i=0;i<1000;i++)
+	{
+		if(all_tasks[i].state==UNALLOCATED_P)
+		{
+			memset((uint64_t)&all_tasks[i], 0, sizeof(pcb));
+			all_tasks[i].pid = i;
+			all_tasks[i].state =ALLOCATED_P;
+			return &all_tasks[i]; 
+		}
+	}
+	kprintf_k("No processes can be accomodated\n");
+	return NULL;
+}
+
+void run_queue_add(pcb *task)
+{
+	task->state=RUNNING_P;
+}
+
+
+
+
+
+/*
+void  context_switch_routine(pcb *current_task,pcb *next_task)
+{
+        t3= (pcb *)page_alloc_k();
+        memset((uint64_t)t3, 0, sizeof(struct pcb));
+
+
+        t3->kstack[511] = (uint64_t) (&task_switcher);
+
+        t3->rsp= (uint64_t)&(t3->kstack[511]);
+        current_task->rsp= (uint64_t)&(current_task->kstack[511-15]);
+        next_task->rsp= (uint64_t)&(next_task->kstack[511-15]);
+
+        task_switcher(t1,current_task);
+}
+void task_switcher(pcb *current_task,pcb *next_task)
+{
+        schedule(current_task,next_task);
+        kprintf("Done with it\n");
+        return;
+}
+*/
+void function1()
+{       
+        kprintf_k("HEY I AM TASK1 -- In function task-1 now \n");
+        schedule(t1,t2);
+        kprintf("Done with it\n");
+        return;
+}
+void function2()
+{
+        
+        kprintf_k("HEY I AM TASK2 -- In function task-2 now \n");
+        schedule(t2,t3);
+        kprintf_k("HEY I AM TASK2  - Time 2");
+        schedule(t2,t3);
+        kprintf_k("HEY I AM TASK2  - Time 3");
+        schedule(t2,t3);
+        return;
+}
+void function3()
+{       
+        kprintf_k("HEY I AM TASK3 -- Came from TASK2 now \n");
+        schedule(t3,t2);
+        kprintf_k("HEY I AM TASK3 -- Tim 2\n");
+        schedule(t3,t2);
+        kprintf_k("HEY I AM TASK3 -- Tim 3\n");
+        while(1);
+        schedule(t3,t2);
+        return;
+
+}
+
+/*
+void  context_switch()
+{       
+        t1= (pcb *)page_alloc_k();
+        t2= (pcb *)page_alloc_k();
+        t3= (pcb *)page_alloc_k();
+                
+        memset((uint64_t)t1, 0, sizeof(struct pcb));
+        memset((uint64_t)t2, 0, sizeof(struct pcb));
+        memset((uint64_t)t3, 0, sizeof(struct pcb));
+        
+        t1->kstack = (uint64_t*)page_alloc_k();
+        t2->kstack = (uint64_t*)page_alloc_k();
+        t3->kstack = (uint64_t*)page_alloc_k();
+        
+        t1->kstack[511] = (uint64_t) (&function1);
+        t2->kstack[511] = (uint64_t) (&function2);
+        t3->kstack[511] = (uint64_t) (&function3);
+
+        t1->rsp= (uint64_t)&(t1->kstack[511]);
+        t2->rsp= (uint64_t)&(t2->kstack[511-15]);
+        t3->rsp= (uint64_t)&(t3->kstack[511-15]);
+
+        function1();
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
 int oct2bin( char *str, int size)
 {
     int n = 0;
@@ -59,7 +233,7 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 			uint64_t extra_page= vm->size% PAGESIZE;
 			if(extra_page)
 				num_pages+=1;
-			
+				
 			for(int i=0;i<num_pages;i++)
 			{
 				uint64_t page= page_alloc_k();	
@@ -68,7 +242,7 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 				{
 					//copying the first page.
 					//we have to copy only half of the page.
-					
+							
 					if(num_pages==1 && (end-(start&PAGEALIGN))!=PAGESIZE)
 					{
 						uint64_t lower_chunk =start- (start&PAGEALIGN);
@@ -80,7 +254,7 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 						//changing the cr3 to allowing copying
 						 __asm__ volatile("movq %0, %%cr3"::"b"(kernel_cr3));
         					//tlb flush
-        					__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");					
+						tlb_flush();
 						memcpy((void *)(page+lower_chunk),(void*)(paddr),total_content);
 						//switching back from kernel to user
 						__asm__ volatile("movq %0, %%cr3"::"b"(user_cr3));
@@ -131,13 +305,21 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 		vm=vm->next;
 	}
 	return;
-}	
-  
+}
+/*	
+void allocate_stack()
+{
+	uint64_t page=page_alloc_k();
+	memset(page,0,PAGESIZE);
+	page_table_walk_k(page-KERNBASE,STACKTOP-4096,7);
+	return;
+}
+*/
 void switch_to_user_mode()
 {
         //changing address space. Also, needs to be
 	__asm__ volatile("movq %0,%%rsp;" : "=b"(curr_task->rsp));
-        set_tss_rsp( (void *)((curr_task->kstack)+510));
+        set_tss_rsp( &curr_task->kstack[510]);
 	pml4 *user_pml4 = (pml4 *)page_alloc_k();
 	uint64_t kernel_cr3;
 	 __asm__ volatile("movq %%cr3,%0":"=b"(kernel_cr3):);
@@ -148,12 +330,13 @@ void switch_to_user_mode()
         //copy page tables of kernel to user pagetables.
 	*(pml4 *)((uint64_t)user_pml4 + 511*8) = *((pml4 *)(kernel_cr3+KERNBASE+511*8));
 	//now load the cr3 with the user_pml4
+	curr_task->pml4_t =((uint64_t)(user_pml4))-KERNBASE;
 	__asm__ volatile("movq %0, %%cr3"::"b"((uint64_t)user_pml4-KERNBASE));
 	//tlb flush
 	__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");
 	uint64_t user_cr3= (uint64_t)user_pml4-KERNBASE;
 	load_userprogram_content(curr_task->vm_head,user_cr3,kernel_cr3 );
-
+	
 	//copy page tables of kernel to user pagetables.
 //	*(pml4 *)((uint64_t)user_pml4 + 511*(4096/512)) = *((pml4 *)(kernel_pml4+KERNBASE+511*(4096/512)));
 	
@@ -182,15 +365,15 @@ void switch_to_user_mode()
 int tarfs_lookup(char *tarfs,char *file,char **elf_hdr)
 {
      	
-	kprintf_k("%s is the filename \n",file);
-	kprintf_k("here we have archive as %p \n",tarfs);
+	//kprintf_k("%s is the filename \n",file);
+	//kprintf_k("here we have archive as %p \n",tarfs);
 	char *p= tarfs;    
     while (!Mystrcmp(p + 257, "ustar", 5)) 
     {
         int filesize = oct2bin(p+0x7c,11);
         if (!Mystrcmp(p,file,Mystrlen(file)+1)) 
 	{
-	   kprintf_k("found the file\n");
+	   //kprintf_k("found the file\n");
             *elf_hdr = p+ 512;
             return filesize;
 	}
@@ -278,26 +461,21 @@ void print_task_structurepcb *task)
 void create_task(char *filename)
 {
 	
-	pcb *task =(pcb *) page_alloc_k();
-				
-	memset((uint64_t)task, 0, sizeof(struct pcb));
-	task->kstack= (uint64_t *)page_alloc_k();
+	pcb *task = new_task();
+	run_queue_add(task);		
 	//memset((uint64_t)task, 0, sizeof(struct pcb));
 	task->vm_head=(vm_struct *) page_alloc_k();
       	//memset((uint64_t)task->mm, 0, sizeof(struct mm_struct));
-	task->next_task=NULL;
 	task->ustack =  0xfffffe0000000000;
 //      	task->prev_task=NULL; 	
-	task->parent=NULL;
-	task->child=NULL;
-	kprintf_k("%s  is the filename in createtask \n",filename);		
+	//kprintf_k("%s  is the filename in createtask \n",filename);		
 	vm_struct *list=NULL;	
 	task->rip = elf_load(filename,&list);
 	
 	task->vm_head =list;
 	curr_task= task;
 	
-	
+		
 //	while(1);
 	switch_to_user_mode();	
 	return;	
@@ -469,41 +647,41 @@ void page_fault_handler(uint64_t error_num)
 	
 
 
-void copy_pagetables(uint64_t pml4_pa)
+uint64_t copy_pagetables(uint64_t pml4_va)
 {
-        pml4* pml4_p= (pml4 * )(pml4_pa);
+#define VA(pa) ((pa)+KERNBASE)
+#define PA(va) ((va)-KERNBASE)
+        pml4* pml4_p= (pml4 * )(pml4_va);
         pml4* pml4_c= (pml4 *)page_alloc_k();
         memset((uint64_t)pml4_c, 0,PAGESIZE);
+
         pml4_c[511] = pml4_p[511];
         for(int i=0;i<511;i++)
         {
-                if((*(pml4 *)pml4_p[i])&3 )
+                if((pml4_p[i])&3 )
                 {
-                        pml4_c[i] = page_alloc_k();
-                        pdp *pdp_p = (pdp*)pml4_p[i];
-                        pdp *pdp_c = (pdp*)pml4_c[i];
+                        pml4_c[i] = PA(page_alloc_k());
+                        pdp *pdp_p = (pdp *)((VA(pml4_p[i]) & PAGEALIGN));
+                        pdp *pdp_c = (pdp *)(VA(pml4_c[i]));
+			pml4_c[i] |=7;
                         for(int j=0;j<512;j++)
                         {
-                                if(*(pdp *)(pdp_p[j])&3 )
+                                if((pdp_p[j])&3 )
                                 {
-                                        pdp_c[j] = page_alloc_k();
-                                        pd *pd_p = (pd *)pdp_p[j];
-                                        pd *pd_c = (pd *)pdp_c[j];
+                                        pdp_c[j] = PA(page_alloc_k());
+                                        pd *pd_p = (pd *)((VA(pdp_p[j])) & PAGEALIGN);
+                                        pd *pd_c = (pd *)(VA(pdp_c[j]));
+					pdp_c[j] |=7;
                                         for(int k=0;k<512;k++)
                                         {
-                                                if((*(pd *)pd_p[k])&3 )
+                                                if((pd_p[k])&3 )
                                                 {
-                                                        pd_c[k] = page_alloc_k();
-                                                        pt *pt_p = (pt *)pd_p[k];
-                                                        pt *pt_c = (pt *)pd_c[k];
-                                                        for(int l=0;l<512;l++)
+                                                        pd_c[k] = PA(page_alloc_k());
+                                                        pt *pt_p = (pt *)((VA(pd_p[k])) & PAGEALIGN);
+                                                        pt *pt_c =(pt *)( VA(pd_c[k]));
+                                    			pd_c[k]|=7;
+				                        for(int l=0;l<512;l++)
                                                         {
-                                                                //pt_c[l]= (pt *)page_alloc_k();
-								/*
-                                                                *(pt *)(pt_c[l])= *(pt *)(pt_p[l]) &5 ;
-								*(pt *)(pt_p[l])= *(pt *)(pt_p[l]) &5 ; 
-								count_page((uint64_t)((*(pt *)(pt_p[l]))+KERNBASE);                                                                          
-                                                        	*/
 								pt_c[l] = pt_p[l] & 5;
 								pt_p[l] = pt_p[l] & 5;
 								count_page(pt_p[l] + KERNBASE);
@@ -519,6 +697,9 @@ void copy_pagetables(uint64_t pml4_pa)
                     }
 
             }
+
+	tlb_flush();
+	return PA((uint64_t)pml4_c);
 
 }
 
@@ -545,7 +726,7 @@ int copy_on_write(uint64_t errorno)
  void copy_vmas(vm_struct *parent,vm_struct **child)
 {
         vm_struct *temp =parent,*prev=parent;
-        while(temp)
+        while(temp!=NULL)
         {
 
                 vm_struct *vm  = (vm_struct *)page_alloc_k();
@@ -563,35 +744,46 @@ int copy_on_write(uint64_t errorno)
                 }
                 else
                 {
-                        prev->next=vm;
+                        
+			prev->next=vm;
                         vm->next=NULL;
-
+			prev = prev->next;
                 }
-                temp++;
+                temp=temp->next;
         }
         return;
 
 }
-void fork(pcb *parent)
+
+uint64_t fork()
 {
-        pcb *child= (pcb *)page_alloc_k();
-        child->pid = pid++;
-        child->kstack =(uint64_t *) page_alloc_k();
-        memcpy(child->kstack, parent->kstack, PAGESIZE);
-        child->rsp=parent->rsp;
+	pcb *parent= curr_task;	
+        pcb *child= new_task();
+
+        memcpy(child->kstack, parent->kstack, 512*8);
+
+        //child->rsp=parent->rsp;
 
         //what should be the state
-        copy_pagetables(parent->pml4_t);
-        child->pid_parent = parent->pid;
+        child->pml4_t = copy_pagetables(parent->pml4_t + KERNBASE);
+        child->parent_pid = parent->pid;
+	child->ustack = parent->ustack;
+	child->rip= parent->rip;
         //child->mm = (mm_struct *)page_alloc_k();
         vm_struct *list = (vm_struct *)page_alloc_k();
         memset((uint64_t)list,0,PAGESIZE);
         copy_vmas(parent->vm_head, &list);
         child->vm_head = list;
 
-        //how to give next and prev processes?
-        child->prev_task = NULL;
-        child->next_task = NULL;
-        return;
+	run_queue_add(child);	
+	//just to check if its a child process.
+       	child->kstack[511] = 92736;
+	
+	if(curr_task->pid==parent->pid)
+	{
+		return child->pid;
+	}
+	
+	return 0;
 }
 

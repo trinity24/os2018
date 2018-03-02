@@ -11,58 +11,58 @@ so, at 15*18 we will have the error code.
 .global context_switch_routine,isr32, isr33, isr80, isr14
 
 .macro pop_registers_saving_rax
-   pop %r15
-   pop %r14
-   pop %r13
-   pop %r12
-   pop %r11
-   pop %r10
-   pop %r9
-   pop %r8
-   pop %r8 /*instead of popping into rax, we pop into some register, say r8*/
-   pop %rcx
-   pop %rdx
-   pop %rbx
-   pop %rbp
-   pop %rsi
-   pop %rdi
+   popq %r15
+   popq %r14
+   popq %r13
+   popq %r12
+   popq %r11
+   popq %r10
+   popq %r9
+   popq %r8
+   popq %rcx /*instead of popping into rax, we pop into some register, say rcx*/
+   popq %rcx
+   popq %rdx
+   popq %rbx
+   popq %rbp
+   popq %rsi
+   popq %rdi
 .endm
 
 
 .macro push_registers
-   push %rdi
-   push %rsi
-   push %rbp
-   push %rbx
-   push %rdx
-   push %rcx
-   push %rax
-   push %r8
-   push %r9
-   push %r10
-   push %r11
-   push %r12
-   push %r13
-   push %r14
-   push %r15
+   pushq %rdi
+   pushq %rsi
+   pushq %rbp
+   pushq %rbx
+   pushq %rdx
+   pushq %rcx
+   pushq %rax
+   pushq %r8
+   pushq %r9
+   pushq %r10
+   pushq %r11
+   pushq %r12
+   pushq %r13
+   pushq %r14
+   pushq %r15
 .endm
 
 .macro pop_registers
-   pop %r15
-   pop %r14
-   pop %r13
-   pop %r12
-   pop %r11
-   pop %r10
-   pop %r9
-   pop %r8
-   pop %rax
-   pop %rcx
-   pop %rdx
-   pop %rbx
-   pop %rbp
-   pop %rsi
-   pop %rdi
+   popq %r15
+   popq %r14
+   popq %r13
+   popq %r12
+   popq %r11
+   popq %r10
+   popq %r9
+   popq %r8
+   popq %rax
+   popq %rcx
+   popq %rdx
+   popq %rbx
+   popq %rbp
+   popq %rsi
+   popq %rdi
 .endm
 //here rsi is next_task and rdi is current_task
 //we have to save context of current task. So, save its CPU registers(all general purpose) 
@@ -72,14 +72,12 @@ so, at 15*18 we will have the error code.
 context_switch_routine:
    push_registers
    movq %rsp, (%rdi)
-   //TODO: For now removing
-   //movq %cr3,%rax
-   //movq %rax, 8(%rdi)
+   movq %cr3,%rax
+   movq %rax, 8(%rdi)
    
    movq (%rsi) , %rsp
-   //movq 8(%rsi), %rax
-   //TODO:for now removing cr3
-   //movq %rax, %cr3
+   movq 8(%rsi), %rax
+   movq %rax, %cr3
    pop_registers
    retq   
    
@@ -89,9 +87,9 @@ context_switch_routine:
 isr32:
    cli
    push_registers
-   call timer
+   //call timer
    pop_registers
-   sti
+//   sti
    iretq
 
 
@@ -101,7 +99,7 @@ isr33:
    push_registers
    call kb_interrupt_handler
    pop_registers
-   sti
+//   sti
    iretq
 
 /*Syscall Handler*/
@@ -111,7 +109,7 @@ isr80:
    movq %rsp,%rdi
    call syscallHandler
    pop_registers_saving_rax
-   sti
+//   sti
    iretq
 
 
@@ -123,7 +121,8 @@ isr14:
    movq 120(%rsp),%rdi
    call page_fault_handler
    pop_registers
-   sti
+   add $8, %rsp
+//   sti
    iretq
 
 
