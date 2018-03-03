@@ -9,7 +9,7 @@
 #include <sys/elf64.h>
 #include <sys/kprintf1.h>
 #include <sys/gdt.h>
-
+#include <sys/mem.h>
 
 pcb *t1,*t2,*t3;
 pcb all_tasks[1000];
@@ -199,19 +199,6 @@ int oct2bin( char *str, int size)
     return n;
 }
 
-void memcpy(void *p1,void * p2,uint64_t size)
-{
-        char *dst = (char *)p1;
-        char *src= (char*)p2;
-        while(size--)
-        {
-                *dst  =*src ;
-		 src++;
-		 dst++;
-        	
-	}
-        return;
-}
 void stub_func()
 {
 	kprintf_k("here i am hello !\n");
@@ -682,9 +669,10 @@ uint64_t copy_pagetables(uint64_t pml4_va)
                                     			pd_c[k]|=7;
 				                        for(int l=0;l<512;l++)
                                                         {
-								pt_c[l] = pt_p[l] & 5;
-								pt_p[l] = pt_p[l] & 5;
-								count_page(pt_p[l] + KERNBASE);
+								pt_c[l] = pt_p[l]|7;
+								//pt_p[l] = pt_p[l] &5;
+								if(((pt_c[l])&PAGEALIGN)!=0)
+									count_page(pt_p[l] + KERNBASE);
 							}
                                                 }
                                         }
@@ -705,7 +693,7 @@ uint64_t copy_pagetables(uint64_t pml4_va)
 
 int copy_on_write(uint64_t errorno)
 {
-/*	
+	
         if (errorno==7)
         {
                 // since errocode is 7., The exception is regarding COW
@@ -720,7 +708,7 @@ int copy_on_write(uint64_t errorno)
 		
                 return 1;
         }
-*/
+
         return 0;
 }
  void copy_vmas(vm_struct *parent,vm_struct **child)

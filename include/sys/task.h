@@ -43,11 +43,9 @@ typedef struct file
 
 
 typedef struct pcb{
-  
   uint64_t rsp;
   uint64_t pml4_t;
   regs cpu_regs;
- 
   uint64_t kstack[512];
   uint64_t pid;
   enum {UNALLOCATED_P, RUNNING_P, SLEEPING_P, ZOMBIE_P, ALLOCATED_P} state;
@@ -56,27 +54,12 @@ typedef struct pcb{
   uint64_t rip;
   vm_struct *vm_head;
   uint64_t parent_pid;
-  
   /* filesystem information */
   //struct fs_struct *fs;
    /* open file information */
   file *files;
 } pcb;
 pcb* curr_task;
-/*
-struct mm_struct{
-   struct vm_struct *mmap;
-   uint64_t flags;	
-};
- typedef struct  {
-    uint64_t flags;
-    void *addr;
-    uint64_t size;
-    vm_struct *next;
-  }vm_struct;
-
-*/
-//void copy_vmas(vm_struct *parent)
 uint64_t vm_search(uint64_t addr);
 
 void initialise_tasks();
