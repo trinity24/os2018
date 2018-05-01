@@ -1,6 +1,10 @@
 
-#include <sys/Mysyscalls.h>
+//#include <sys/Mysyscalls.h>
 #include <sys/Mysyscalldefs.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 char file_global[300]="";
 char buff_global[300];
 uint64_t *filedes;
@@ -20,7 +24,7 @@ void print(char *s)
         }
 	return;
 }
-uint64_t MyOpen(const char *file,uint64_t flag, uint64_t mode)
+uint64_t open(const char *file,uint64_t flag, uint64_t mode)
 {
 	int i=0;
 	while(file[i]!='\0')
@@ -34,22 +38,51 @@ uint64_t MyOpen(const char *file,uint64_t flag, uint64_t mode)
 
 
 }
-
-uint64_t MyWrite(uint64_t fd, char * buf, uint64_t count)
+pid_t get_pid()
 {
-	int i=0;
+	return Myget_pid(39);
+}
+pid_t get_ppid()
+{
+        return Myget_ppid(110);
+}
+uint64_t kill(pid_t pid, int signal)
+{
+	return MyKill(62,pid,signal);
+}
+uint64_t wait(int *status)
+{
+	return Mywait(61,status);
+}
+
+uint64_t waitpid(int pid, int *status)
+{
+	return Mywaitpid(7,pid,status);
+}
+void ps()
+{
+	return Myps(10);
+}
+void exit(int status)
+{
+	return MyExit(60,status);
+}
+uint64_t write(uint64_t fd, char * buf, uint64_t count)
+{
+	/*int i=0;
+	
 	while(buf[i]!='\0')
 	{
 		buff_global[i]=buf[i];
 		i++;
-	}
-	return MyWritedef(1,fd,buff_global,count);
+	}*/
+	return MyWritedef(1,fd,buf,count);
 
 }
-uint64_t MyRead(uint64_t fd,char *buf,uint64_t count)
+uint64_t read(uint64_t fd,char *buf)
 {
 	uint64_t i=0;
-	uint64_t ret = MyReaddef(0,fd,buff_global,count);
+	uint64_t ret = MyReaddef(3,fd,buff_global);
 	
 	while(buff_global[i]!='\0')
 	{
@@ -65,23 +98,34 @@ uint64_t MyRead(uint64_t fd,char *buf,uint64_t count)
 
 pid_t MyWaitpid(pid_t pid,uint64_t *stat_add, uint64_t options)
 {
-/*	int i=0;
-	while(file[i]!='\0')
-	{
-		buff_global[i]=file[i];
-	}
-
-	return MyWaitpiddef(7,pid, buff_global,options)
-*/	return -1;
+	
+	return -1;
 }
-pid_t MyFork()
+pid_t fork()
 {
-	return MyForkdef(2);
+	return MyForkdef(57);
 }
-uint64_t MyPipe(uint64_t *fildes)
+
+void execvpe(char *filename, char* args[], char* envp[])
+{
+	return MyExecdef(59,filename, args, envp);
+}
+uint64_t pipe(uint64_t *fildes)
 {
 	filedes= filedes;
 	return MyPipedef(42,filedes);
 }
+int chdir(const char *path)
+{
+        return Mychdirdef(80,path);
 
+}
 
+void* malloc(size_t size)
+{
+	return Mymalloc(81, size);
+}
+char *getcwd(char *buf, size_t size)
+{       
+        return Mygetcwd(82,buf,size);
+}

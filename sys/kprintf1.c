@@ -43,7 +43,7 @@ int base_print (unsigned long int value,int arg_width,char *finalstr,int iter,in
             y=x%base;
             
     }
-    len=Mystrlen(s);
+    len=strlen(s);
 	 
     //l=Mystrlen(finalstr);
 	remain_width= arg_width- len;
@@ -53,7 +53,7 @@ int base_print (unsigned long int value,int arg_width,char *finalstr,int iter,in
      	
      	remain_width--;
 	}    
-   len=Mystrlen(s);  
+   len=strlen(s);  
     int j=0; 
     for(j=0;j<len;j++)
     	finalstr[iter++]=s[len-j-1];
@@ -178,40 +178,21 @@ void scroll_up(int colour)
 //on the screen from the mainstring and args into the "fullstr"
 int convert_fullstring(char *fullstr, char *mainstr, va_list args)
 {       
-	
-     //now we scan the mainstr and check if there are some format specifiers
     int i=0,iter=0; int x;
-    int len=Mystrlen(mainstr);
+    int len=strlen(mainstr);
     char *s;
-//    char hexy[10];
     while(i<len)
     {       
-        //if it is not a format specifier and just a character then we take the same into the 
-        //fullstr which is the finalstr.
         if(mainstr[i]!='%')
             fullstr[iter++]=mainstr[i++];
-
-        //if we see a percent that means its a format specifier. so, we have to check the corresponding 
-        //arg for it and embed the value into the final string.
         else
-        {   /*
-		if(mainstr[i]=='\')
-		{	
-			i++;
-			if(mainstr[i]=='n')
-			{	
-					
-			}
-		}*/
+	{
             int width_arg=0;
             i++;
-            
-                //we can check if we have an integer that specifies more about the print value
             while(mainstr[i]>'0' && mainstr[i]<'9') //if we have an integer
             {       
                 width_arg*=10;
                 width_arg+=mainstr[i]-'0'; 
-                //we try to convert the string to integer. and thereby get the width required. 
                 i++;
             }
             switch(mainstr[i])
@@ -225,7 +206,6 @@ int convert_fullstring(char *fullstr, char *mainstr, va_list args)
                          break;
                 case 's':
                          s= (char *)(va_arg(args,char *));
-			//int ll=Mystrlen(s);int j=0;
                          while(*s)
                          {       
                              fullstr[iter++]=*s;
@@ -242,14 +222,13 @@ int convert_fullstring(char *fullstr, char *mainstr, va_list args)
 			x=base_print((long int)va_arg(args, long int),width_arg,fullstr,iter, 16);
 			iter=x+iter;
 			//break;
-	}
+        	}
             
         	i++;
-        }
-        
-}
-fullstr[iter]='\0';
-return 1;
+       	 }
+      }
+	fullstr[iter]='\0';
+	return 1;
 
 }
 

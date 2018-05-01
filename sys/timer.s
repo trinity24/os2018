@@ -87,7 +87,7 @@ context_switch_routine:
 isr32:
    cli
    push_registers
-   //call timer
+   call timer
    pop_registers
 //   sti
    iretq

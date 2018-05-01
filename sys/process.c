@@ -12,15 +12,18 @@
 #include <sys/mem.h>
 
 pcb *t1,*t2,*t3;
-pcb all_tasks[1000];
+pcb all_tasks[PROCESS_COUNT];
 uint64_t pid=0;
 vm_struct *vm= NULL;
-
+#define URP(addr) (addr&(0xfffffffffffffff5))
+#define CLR(addr) (addr&(0xfffffffffffff000))
+void exit_syscall(int status);
+pcb* new_task();
 void schedule()
 {       
 	pcb *next_task=NULL;
 	int flag=0;
-	for(int i=(curr_task->pid)+1;i<1000;i++)
+	for(int i=(curr_task->pid)+1;i<PROCESS_COUNT;i++)
 	{
 		if(all_tasks[i].state==RUNNING_P)
 		{
@@ -29,6 +32,7 @@ void schedule()
 			break;
 		}
 	}
+
 	if(!flag)
 	{
 		flag=0;
@@ -45,35 +49,87 @@ void schedule()
 	
 	if(flag)
 	{
+		//kprintf_k("Scheduling %d\n", next_task->pid);
 		pcb *temp=curr_task;
 		curr_task=next_task;
                 set_tss_rsp( &curr_task->kstack[510]);
 		if (next_task->kstack[511] == 92736)
 		{
 			next_task->rsp = (uint64_t) &(next_task->kstack[496-8-15]);
+			next_task->kstack[496-8-15+8] = 0;
+			next_task->kstack[496-8-15+7] = 0;
+			next_task->kstack[496-8-15+9] = 0;
+			//TODO: put rax=0 in the required offset on kstack;
 			next_task->kstack[511] = 0;
 		} 
         	context_switch_routine(temp, next_task);
 	}
+	else
+	{
+		kprintf_k("schedule - impossible condition\n");
+	}
 	return;
 }
-
+void idle()
+{
+	while(1)
+	{
+		__asm__ volatile("sti; hlt; cli;");
+		schedule();
+		
+	}
+}
+uint64_t get_cr3()
+{
+	uint64_t cr3;
+         __asm__ volatile("movq %%cr3,%0":"=b"(cr3):);
+	return cr3;
+}
+uint64_t get_cr2()
+{	
+	uint64_t cr2;
+         __asm__ volatile("movq %%cr2,%0":"=b"(cr2):);
+	return cr2;
+}
 void tlb_flush()
 {
 	__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");
 }
 
+void slacked_forever()
+{
+//	int status;	
+	while(1)
+	{
+		//wait_syscall(&status);
+	}
+}
+
 void initialise_tasks()
 {
-	for(int i=0;i<1000;i++)
-	{
+	for(int i=0;i<PROCESS_COUNT;i++)
+	{ 	
 		all_tasks[i].pid= i;
 	}
+	//initialise the head process
+	//slacked_forever();
+	pcb *task1= new_task();
+//	task1->rsp = task1->kstack[510];
+//	run_queue_add(task1);	
+//	task1->rip =(uint64_t) &slacked_forever;
+//	task1= new_task();
+        task1->rsp = (uint64_t)&task1->kstack[510-15];
+        run_queue_add(task1);
+        task1->kstack[510] = (uint64_t) idle;
+	uint64_t kernel_cr3 = get_cr3();
+	task1->pml4_t = kernel_cr3;
+	
 	return;
 }
+
 pcb* new_task()
 {
-	for(int i=0;i<1000;i++)
+	for(int i=0;i<PROCESS_COUNT;i++)
 	{
 		if(all_tasks[i].state==UNALLOCATED_P)
 		{
@@ -90,34 +146,213 @@ pcb* new_task()
 void run_queue_add(pcb *task)
 {
 	task->state=RUNNING_P;
+	return;
 }
 
+void wait_queue_add(pcb *task)
+{
+	
+	task->state=WAITING_P;
+	return;
+}
+void read_suspend_add(pcb *task)
+{
+	task->state = READ_SUSPEND_P;
+	return;
+}
+void read_suspend_remove()
+{
+	kprintf_k("Reading suspended\n");
+	for(int i=0;i<PROCESS_COUNT;i++)
+	{
+		if(all_tasks[i].state==READ_SUSPEND_P)
+		{	
+			run_queue_add(&all_tasks[i]);
+			break;
+		}
+	}
+	return;	
+}
 
+void clear_pcb(pcb task)
+{
+	task.state= UNALLOCATED_P;
+	
+}	
+uint64_t wait_syscall(int *status)
+{
 
+	//check for the zombies ... clear the pcbs if there are zombies
+	for(int i=0;i<PROCESS_COUNT;i++)
+	{
+		if(all_tasks[i].state==ZOMBIE_P && all_tasks[i].parent_pid==curr_task->pid)
+                {
+			*status= all_tasks[i].exit_status;
+                        //clear this child's pcb
+                        clear_pcb(all_tasks[i]);
+                        return i;
+                }
+	}
+	//adding current task to wait queue. 
+	wait_queue_add(&all_tasks[curr_task->pid]);
+	schedule();
+	for(int i=0;i<PROCESS_COUNT;i++)
+       	{       
+                if(all_tasks[i].state==ZOMBIE_P && all_tasks[i].parent_pid==curr_task->pid)
+               	{       
+			//clear this child's pcb
+                        clear_pcb(all_tasks[i]);
+                       	return i;
+                }
+        	
+	}
+	return -1;	
+}
+uint64_t waitpid_syscall(int pid,int *status)
+{
+/*
+The value of pid can be:
 
+< -1 : meaning wait for any child process whose process group ID is equal to the absolute value of pid.
+
+-1   : meaning wait for any child process.
+
+0    : meaning wait for any child process whose process group ID is equal to that of the calling process.
+
+> 0  : meaning wait for the child whose process ID is equal to the value of pid.*/	
+	if( pid>PROCESS_COUNT-1)
+        {
+                kprintf_k("Invalid Process id\n");
+                return -1;
+        }
+        else if(all_tasks[pid].state==UNALLOCATED_P)
+        {
+                kprintf_k("This process doesn't exist \n");
+                return -1;
+        }
+        else if(pid==-1)
+        {
+                return wait_syscall(status);
+        }
+        else if(pid <-1)
+        {
+                //take pid of the absolute process 
+                pid*=-1;
+        }
+	while(1)	
+        {
+  		if(all_tasks[pid].state==ZOMBIE_P && all_tasks[pid].parent_pid==curr_task->pid)
+        	{
+                	//clear this child's pcb
+			*status=all_tasks[pid].exit_status;
+			clear_pcb(all_tasks[pid]);
+               		return pid;
+        	}
+        	else
+		{
+			wait_queue_add(&all_tasks[curr_task->pid]);
+        		schedule();
+		}
+	}        
+	return -1;
+}
+
+void ps_syscall()
+{
+	
+	for(int i=0;i<PROCESS_COUNT;i++)
+	{
+		if(all_tasks[i].state!=UNALLOCATED_P)
+		{
+			kprintf_k("Process ID: %d \n",all_tasks[i].pid);
+		}
+	}
+	return;
+}
+
+uint64_t kill_syscall(int process_id,int signal)
+{
+	if(process_id<0 || process_id>PROCESS_COUNT-1)
+	{
+		kprintf_k("Invalid Process id\n");
+		return -1;
+	}
+	else if(all_tasks[process_id].state==UNALLOCATED_P)
+	{
+		kprintf_k("This process doesn't exist \n");
+		return -1;
+	}
+	exit_syscall(1);
+	return 1;
+}
+
+void adopt_orphan(int parent_id)
+{
+	for(int i=0;i<PROCESS_COUNT;i++)
+	{
+		if(all_tasks[i].parent_pid==parent_id)
+			all_tasks[i].parent_pid=HEAD_PROCESS;
+	}
+	return;
+}
+void exit_syscall(int status)
+{
+	//change children parent if there are children
+	adopt_orphan(curr_task->pid);
+	//now, see if its parent is waiting and release it.
+	run_queue_add(curr_task);
+	//now prepare to terminate the child 
+	clear_process_mem(&all_tasks[curr_task->pid]);
+        all_tasks[curr_task->pid].state=ZOMBIE_P;
+	all_tasks[curr_task->pid].exit_status=status;
+	schedule();
+	return;
+}
+
+char* getcwd_syscall(char *cwd,int size)
+{
+       int len = strlen(curr_task->cwd); 
+        for(int i=0;i<len;i++)
+        {
+               cwd[i]= curr_task->cwd[i];
+        
+        }
+	cwd[len] = '\0';
+	return cwd;
+}
 
 /*
-void  context_switch_routine(pcb *current_task,pcb *next_task)
+int chdir_syscall(char *path)
 {
-        t3= (pcb *)page_alloc_k();
-        memset((uint64_t)t3, 0, sizeof(struct pcb));
-
-
-        t3->kstack[511] = (uint64_t) (&task_switcher);
-
-        t3->rsp= (uint64_t)&(t3->kstack[511]);
-        current_task->rsp= (uint64_t)&(current_task->kstack[511-15]);
-        next_task->rsp= (uint64_t)&(next_task->kstack[511-15]);
-
-        task_switcher(t1,current_task);
+	char new_path[256];
+	get_full_path(path, &new_path);
+	if(new_path[0]=='/'&&new_path[1]=='\0')
+	{
+		strcpy(curr_task->cwd, new_path);
+		return 0;
+	}
+	else if(is_directory(new_path)!=-1)
+	{
+		strcpy(curr_task->cwd, new_path);
+		return 0;
+	}
+	return -1;
 }
-void task_switcher(pcb *current_task,pcb *next_task)
+void getpwd(char *curr_dir)
 {
-        schedule(current_task,next_task);
-        kprintf("Done with it\n");
-        return;
+	strcpy(curr_dir,curr_task->pwd);
+	return;	
+}*/
+uint64_t get_pid()
+{
+	//kprintf_k("ITS IN GETPID\n");
+	return curr_task->pid;
 }
-*/
+uint64_t get_ppid()
+{
+	return curr_task->parent_pid;
+}
+
 void function1()
 {       
         kprintf_k("HEY I AM TASK1 -- In function task-1 now \n");
@@ -148,44 +383,6 @@ void function3()
         return;
 
 }
-
-/*
-void  context_switch()
-{       
-        t1= (pcb *)page_alloc_k();
-        t2= (pcb *)page_alloc_k();
-        t3= (pcb *)page_alloc_k();
-                
-        memset((uint64_t)t1, 0, sizeof(struct pcb));
-        memset((uint64_t)t2, 0, sizeof(struct pcb));
-        memset((uint64_t)t3, 0, sizeof(struct pcb));
-        
-        t1->kstack = (uint64_t*)page_alloc_k();
-        t2->kstack = (uint64_t*)page_alloc_k();
-        t3->kstack = (uint64_t*)page_alloc_k();
-        
-        t1->kstack[511] = (uint64_t) (&function1);
-        t2->kstack[511] = (uint64_t) (&function2);
-        t3->kstack[511] = (uint64_t) (&function3);
-
-        t1->rsp= (uint64_t)&(t1->kstack[511]);
-        t2->rsp= (uint64_t)&(t2->kstack[511-15]);
-        t3->rsp= (uint64_t)&(t3->kstack[511-15]);
-
-        function1();
-}
-*/
-
-
-
-
-
-
-
-
-
-
-
 int oct2bin( char *str, int size)
 {
     int n = 0;
@@ -198,7 +395,6 @@ int oct2bin( char *str, int size)
     }
     return n;
 }
-
 void stub_func()
 {
 	kprintf_k("here i am hello !\n");
@@ -215,26 +411,26 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 			uint64_t start= vm->address;
 			uint64_t end =vm->address +vm->size;
 			uint64_t paddr= vm->fp;
-			
 			uint64_t num_pages =(vm->size/PAGESIZE);
 			uint64_t extra_page= vm->size% PAGESIZE;
 			if(extra_page)
 				num_pages+=1;
-				
 			for(int i=0;i<num_pages;i++)
 			{
 				uint64_t page= page_alloc_k();	
 				//copy - content; 
-				if(i==0&&num_pages==1)
+				if(num_pages)
 				{
 					//copying the first page.
 					//we have to copy only half of the page.
 							
-					if(num_pages==1 && (end-(start&PAGEALIGN))!=PAGESIZE)
+					if(i==0 &&num_pages==1) //only one page, first page and less than 1 Page.
 					{
+						//copy first-half 
 						uint64_t lower_chunk =start- (start&PAGEALIGN);
 						//copy 0 till start
-						memset(page,0,lower_chunk);
+						if(lower_chunk)
+							memset(page,0,lower_chunk);
 						uint64_t total_content= end-start;
 		
 						//copy content from start to end
@@ -258,10 +454,11 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 					else if(i==num_pages-1)
 					{
 						//copy lower chunk with content;
-						uint64_t page_begin = (start*PAGEALIGN)+i*PAGESIZE;
+						uint64_t page_begin = (start&PAGEALIGN)+i*PAGESIZE;
 						uint64_t page_end = end;
 						uint64_t lower_chunk = page_end- page_begin; 
-						uint64_t copy_from = ((paddr)&PAGEALIGN)+ i*PAGESIZE; 
+						uint64_t copy_from = paddr;
+						//((paddr)&PAGEALIGN)+ i*PAGESIZE; 
 						__asm__ volatile("movq %0, %%cr3"::"b"(kernel_cr3));
                                                 __asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");  
 						memcpy((void*)page,(void*)copy_from,lower_chunk);
@@ -275,16 +472,41 @@ void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel
 					//any page in between
 					else
 					{
-						uint64_t page_begin = (start*PAGEALIGN)+i*PAGESIZE;
-					//	uint64_t page_end = page_begin +PAGESIZE;
-						uint64_t copy_from = ((paddr)&PAGEALIGN)+ i*PAGESIZE;
-						__asm__ volatile("movq %0, %%cr3"::"b"(kernel_cr3));
-                                                //tlb flush
-						memcpy((void *)page, (void *)copy_from,PAGESIZE);
-						__asm__ volatile("movq %0, %%cr3"::"b"(user_cr3));
-                                                //tlb flush
-                                                __asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");
-						page_table_walk_k(page-KERNBASE, page_begin, (pml4)(user_cr3+KERNBASE),0x7);
+						uint64_t lower_chunk =0;
+						if(i==0)
+						{
+							//see if the page starts from half;
+							lower_chunk = start-(start&PAGEALIGN);
+							if(lower_chunk)	
+								memset(page,0,lower_chunk);
+							__asm__ volatile("movq %0, %%cr3"::"b"(kernel_cr3));
+                                               		 //tlb flush
+							uint64_t total_content= PAGESIZE-lower_chunk;
+                                               		tlb_flush();
+                                                	memcpy((void *)(page+lower_chunk),(void*)(paddr),total_content);
+                                                	//switching back from kernel to user
+                                                	__asm__ volatile("movq %0, %%cr3"::"b"(user_cr3));
+                                                	//tlb flush
+                                               	 	__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");		
+							 page_table_walk_k(page-KERNBASE,start&PAGEALIGN,(pml4)(user_cr3+KERNBASE),0x7);
+							paddr += total_content;
+						}
+						else
+						{
+							uint64_t page_begin = (start&PAGEALIGN)+i*PAGESIZE;
+							//	uint64_t page_end = page_begin +PAGESIZE;
+							uint64_t copy_from = paddr;
+							//((paddr)&PAGEALIGN)+ i*PAGESIZE;
+							__asm__ volatile("movq %0, %%cr3"::"b"(kernel_cr3));
+                                                	//tlb flush
+							memcpy((void *)(page+lower_chunk), (void *)copy_from,PAGESIZE);
+							__asm__ volatile("movq %0, %%cr3"::"b"(user_cr3));
+                                               		 //tlb flush
+                                               		__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");
+							page_table_walk_k(page-KERNBASE, page_begin, (pml4)(user_cr3+KERNBASE),0x7);
+							paddr += PAGESIZE;
+						}	
+					
 					}
 				}
 			}
@@ -321,17 +543,14 @@ void switch_to_user_mode()
 	__asm__ volatile("movq %0, %%cr3"::"b"((uint64_t)user_pml4-KERNBASE));
 	//tlb flush
 	__asm__ volatile("movq %%cr3, %%rax; movq %%rax, %%cr3":::"%rax");
+ 	//now load the cr3 with the user_pml4 	
 	uint64_t user_cr3= (uint64_t)user_pml4-KERNBASE;
 	load_userprogram_content(curr_task->vm_head,user_cr3,kernel_cr3 );
 	
-	//copy page tables of kernel to user pagetables.
-//	*(pml4 *)((uint64_t)user_pml4 + 511*(4096/512)) = *((pml4 *)(kernel_pml4+KERNBASE+511*(4096/512)));
-	
- 	//now load the cr3 with the user_pml4 
 //	__asm__ volatile("mov %0, %%cr3"::"b"((uint64_t)user_pml4-KERNBASE));
 //	uint64_t user_stack = page_alloc_k();
-	kprintf_k("Loading the User .. \n");	
-        __asm__ volatile ("cli;" 
+	//kprintf_k("Loading the User .. \n");	
+        __asm__ volatile ("cli;"
 			  "pushq $0x23;" //push the data segmnet
                 	  "pushq %1;"
                 	  "pushfq;"
@@ -351,24 +570,41 @@ void switch_to_user_mode()
 //void print_task_structure(pcb *task)
 int tarfs_lookup(char *tarfs,char *file,char **elf_hdr)
 {
-     	
-	//kprintf_k("%s is the filename \n",file);
-	//kprintf_k("here we have archive as %p \n",tarfs);
-	char *p= tarfs;    
-    while (!Mystrcmp(p + 257, "ustar", 5)) 
+    char *p= tarfs;    
+    while (!strcmp(p + 257, "ustar", 5)) 
     {
         int filesize = oct2bin(p+0x7c,11);
-        if (!Mystrcmp(p,file,Mystrlen(file)+1)) 
+        if (!strcmp(p,file,strlen(file)+1)) 
 	{
-	   //kprintf_k("found the file\n");
+		
             *elf_hdr = p+ 512;
             return filesize;
 	}
-        p+=(((filesize+511) /512)+1)*512;
+        p+=(((filesize+511)/512)+1)*512;
     }
+    kprintf_k("No file found\n");
     return 0;
 }
-
+/*
+bool is_directory(char *path)
+{
+	char *p=&(_binary_tarfs_start);
+	
+	while (1)
+    	{
+		struct posix_header_ustar *ph =(strcut posix_header_ustar*)p;
+        	int filesize = oct2bin(p+0x7c,11);
+       		if (!strcmp(p,path,strlen(path)+1))
+        	{
+			if(ph->name[strlen(ph->name)-1]=='/') // this says that its a directory as there's no file extension	
+			{
+				
+			}
+				
+        	}	
+        	p+=(((filesize+511)/512)+1)*512;
+    	}
+}*/
 void elf_read(Elf64_Ehdr *elf,vm_struct **mmap)
 {	
 	uint64_t phdr_offset = elf->e_phoff;
@@ -431,10 +667,11 @@ uint64_t elf_load(char *filename,vm_struct **list)
 	char *elf_hdr;
 	int filesize;
 	filesize = tarfs_lookup(&(_binary_tarfs_start),filename,&elf_hdr );
-	kprintf_k("%d is the size of the file \n",filesize);
+	//kprintf_k("%d is the size of the file \n",filesize);
 	
 	Elf64_Ehdr *elf =(Elf64_Ehdr *)elf_hdr;
-	elf_read( (Elf64_Ehdr *)elf , list);	
+	if(filesize>0)	
+		elf_read( (Elf64_Ehdr *)elf , list);	
 	return elf->e_entry;
 
 }
@@ -448,6 +685,7 @@ void print_task_structurepcb *task)
 void create_task(char *filename)
 {
 	
+	//kprintf_k("Filename : %s \n",filename);
 	pcb *task = new_task();
 	run_queue_add(task);		
 	//memset((uint64_t)task, 0, sizeof(struct pcb));
@@ -461,8 +699,8 @@ void create_task(char *filename)
 	
 	task->vm_head =list;
 	curr_task= task;
-	
-		
+
+//	task->cwd= "/";		
 //	while(1);
 	switch_to_user_mode();	
 	return;	
@@ -495,144 +733,59 @@ uint64_t vm_search(uint64_t addr)
 void page_fault_handler(uint64_t error_num)
 {
 	
-	int cow = copy_on_write(error_num);
-	if (!cow)
+	//int cow = copy_on_write(error_num);
+	if (1)
 	{
-        	pml4 cr3;
-        	uint64_t cr2;
-        	__asm__ volatile("mov %%cr3,%0":"=b"(cr3):);
-        	__asm__ volatile("mov %%cr2,%0":"=b"(cr2):);
-        	
-	        int l=0;
-        	int flag=0;
-		uint64_t addr=cr2+KERNBASE;
+        	uint64_t cr2,cr3;
+		cr3=get_cr3();
+		cr2=get_cr2();
+		uint64_t addr=cr2;
+		struct vm_struct *vm=curr_task->vm_head;
        		while(vm!= NULL)
         	{
-			if(vm->type==0)
+			uint64_t start = vm->address;
+                        uint64_t end = start+ vm->size;
+			if (addr >= start && addr < end)
 			{
-			
-			//virtual address
-                	uint64_t start = vm->address;
-                	uint64_t end = start+ vm->size;
-			if(l==0 && addr>=start && addr<=end)
-                	{       
-				flag=1;
-				break;
+				if (error_num == 7)
+				{
+					copy_on_write(error_num);
+					tlb_flush();
+					return;
+				}
+				else
+				{
+					//stack
+					uint64_t page = page_alloc_k();
+                                	page_table_walk_k(((page-KERNBASE)&PAGEALIGN),(cr2&PAGEALIGN),(pml4)(cr3+KERNBASE),7);
+					tlb_flush();
+					return;
+					
+				}
 			}
-                	else if(vm->next!=NULL && addr>=start &&addr<=end &&l!=0)
-                        {
-				flag=2;
-				break;
-			}
-                	else if(addr>=start && addr<=end && vm->next==NULL)
-                        {	
-				flag=3;
-				break;
-			}	
-			l++;
-                	
-                	}
+			/*
+			else if(vm->type==1)
+			{
+				//stack;
+				uint64_t start = vm->address;
+                                uint64_t end = start+ vm->size;
+				if( addr>=start && addr<=end)
+				{	
+					uint64_t page =page_alloc_k();
+					memcpy(page,)
+				}
+			}*/
 			vm=vm->next;
         	}
 		
-		
-        	if(flag)
-        	{
-                	 uint64_t start = vm->address; //virtual_address
-		       	uint64_t end = (vm->size )+ start;
-			//now copy one page. We have to make sure that the page is copied properly and 
-			//it depends on the location of the address(page-fault address) in the vma-list.
-			// its possible that the address is present in a page -half or full.
-	
-
-			uint64_t page =page_alloc_k();
-			memset(page,0,PAGESIZE);
-			uint64_t pa = vm->fp; //physical address
-
-			
-		 	//case-1 only half page has to be loaded and other half has to be filled with NULL;
-			if(flag==1)
-			{
-				uint64_t page_begin = start&PAGEALIGN;
-				uint64_t page_start_offset = start-page_begin; 
-				uint64_t copy_from = (pa+KERNBASE);
-				//now set from page_begin to start with 0's. 
-				memset(page, 0 ,page_start_offset);
-				//now copy_from to page_end in page
-				memcpy((void *)(start),(void *)copy_from,PAGESIZE-page_start_offset);
-				
-				page_table_walk_k(page-KERNBASE,(start&PAGEALIGN) ,cr3,0x07 );
-				//TODO: Refresh cr3 - TLB FLUSH
-			}	
-		  	//case:2 - when the address is the middle page (a full page)
-			else if (flag==2)
-			{
-				uint64_t copy_from = (pa+KERNBASE)&PAGEALIGN;
-				memcpy((void*)page,(void *)copy_from,PAGESIZE);
-				
-				page_table_walk_k( page-KERNBASE,cr2&PAGEALIGN ,cr3+KERNBASE,0x07 );
-				//TODO: Refresh cr3 - TLB FLUSH	
-			}
-		  	//case:3 - when the address is not the last page, which is partially 
-			else if(flag ==3)
-			{
-				uint64_t page_offset = end - (cr2&PAGEALIGN);
-				//copy from page_begin to page_offset end;
-				memcpy((void*)(page),(void *)((pa+KERNBASE)&PAGEALIGN),page_offset);
-				memset(page+(page_offset),0,PAGESIZE-page_offset);
-				page_table_walk_k(page-KERNBASE,cr2&PAGEALIGN,cr3+KERNBASE,0x07);
-				//TODO: Refresh cr3- TLB FLUSH
-			
-			}
-		}
-       
-		else
-			kprintf_k("This is a seg-fault \n");
+		kprintf_k("Segmentation fault\n");
+		while(1);
+		exit_syscall(-1);
 	}
-	while(1);
+	//while(1);
 	return;
 
 }
-/*	
-
-                 uint64_t npages = 1+(vm->size/PAGESIZE);
-                 uint64_t end = (vm->size )+ start;
-                 uint16_t flag=0;
-                 uint64_t filesize = vm->filesize;
-                 for(int i=0;i<npages;i++)
-                 {
-                        uint64_t page = page_alloc_k();
-                        memset(page, 0, PAGESIZE);
-                        uint64_t fp = vm->fp;
-			//TODO: CHECK THIS ONCE
-                        memcpy((void *)page, (void *)( fp  & PAGEALIGN), PAGESIZE);
-                        //start += page + PAGESIZE - start;
-                        page_table_walk_k( page-KERNBASE,(start  & PAGEALIGN) ,*user_pml4,0x07 );
-                        if(i<npages)
-
-                         {
-
-                                start += (start&PAGEALIGN) + PAGESIZE - start;
-                                  fp+= (fp&PAGEALIGN)+  PAGESIZE - fp;
-                                  if (fp>((vm->fp) +filesize))
-                                {
-                                        flag=1;
-                                        break;
-                                }
-                                //start += (start&PAGEALIGN) + PAGESIZE - start;
-                        }
-                }
-                  if(flag==1)
-                {
-                        memset( start,0, (end-start-filesize));
-                }
-                   //start += (start&PAGEALIGN) + PAGESIZE - start;
-
-        }
-	}
-	*/
-	
-
 
 uint64_t copy_pagetables(uint64_t pml4_va)
 {
@@ -641,7 +794,8 @@ uint64_t copy_pagetables(uint64_t pml4_va)
         pml4* pml4_p= (pml4 * )(pml4_va);
         pml4* pml4_c= (pml4 *)page_alloc_k();
         memset((uint64_t)pml4_c, 0,PAGESIZE);
-
+	//uint64_t p=get_paddr_user(STACKTOP-100,(pml4)pml4_va);
+	//kprintf_k("Testing Stack pa : %x\n",p);	
         pml4_c[511] = pml4_p[511];
         for(int i=0;i<511;i++)
         {
@@ -669,10 +823,15 @@ uint64_t copy_pagetables(uint64_t pml4_va)
                                     			pd_c[k]|=7;
 				                        for(int l=0;l<512;l++)
                                                         {
-								pt_c[l] = pt_p[l]|7;
-								//pt_p[l] = pt_p[l] &5;
-								if(((pt_c[l])&PAGEALIGN)!=0)
-									count_page(pt_p[l] + KERNBASE);
+								if(pt_p[l]!=0)
+								{	
+									pt_c[l] = URP(pt_p[l]);
+									pt_p[l] = URP(pt_p[l]);
+									pt_p[l] = pt_p[l] |0x800;
+									pt_c[l] = pt_c[l] |0x800;	
+									tlb_flush();
+									count_page(pt_p[l]+KERNBASE);
+								}
 							}
                                                 }
                                         }
@@ -685,32 +844,49 @@ uint64_t copy_pagetables(uint64_t pml4_va)
                     }
 
             }
+	
 
 	tlb_flush();
-	return PA((uint64_t)pml4_c);
+/*	uint64_t stack_child = page_alloc_k();
+	memcpy((void *)stack_child,(void *)(STACKTOP-PAGESIZE),PAGESIZE);
+	page_table_walk_k(stack_child-KERNBASE,STACKTOP-PAGESIZE,*(pml4_c+KERNBASE),0x07);
+*/	return PA((uint64_t)pml4_c);
 
 }
-
 int copy_on_write(uint64_t errorno)
 {
-	
-        if (errorno==7)
-        {
                 // since errocode is 7., The exception is regarding COW
                 //Now, we execute COW.
                 //create a new page and copy the content of the current page to the new page allocated.
-                uint64_t cr2;
-                uint64_t page = page_alloc_k();
-                __asm__ volatile("mov %%cr2,%0; ":"=b"(cr2):);
-                //uint64_t pa= cr2-KERNBASE;
-		memcpy((void *)page,(void *)(cr2&PAGEALIGN),PAGESIZE);
-                page_table_walk_k(page-KERNBASE, page,(curr_task->pml4_t) ,7);
+        
+	        uint64_t cr2 =get_cr2();
+                uint64_t cr3 =get_cr3();
 		
-                return 1;
-        }
+		uint64_t pa_cr2 = get_paddr_user(cr2,(pml4)(cr3+KERNBASE));
+                if(pa_cr2&(0x800)) /*chech if page is read-only and present*/
+                {
+                        if(get_reference_count(pa_cr2) ==1)
+                        {
 
-        return 0;
+                                //update the Pagetable entry
+                                page_table_walk_k((pa_cr2&PAGEALIGN),(cr2&PAGEALIGN),(pml4)(cr3+KERNBASE),7);
+                                                        
+                        }
+			else
+			{
+				uint64_t page = page_alloc_k();
+				uint64_t copy_from = (pa_cr2&PAGEALIGN) + KERNBASE;
+				memcpy((void*)page, (void *)copy_from, PAGESIZE);
+                                page_table_walk_k(((page-KERNBASE)&PAGEALIGN),(cr2&PAGEALIGN),(pml4)(cr3+KERNBASE),7);
+				decrement_reference_count(pa_cr2);
+			}
+			return 1;
+
+                }
+    
+	return 0;
 }
+
  void copy_vmas(vm_struct *parent,vm_struct **child)
 {
         vm_struct *temp =parent,*prev=parent;
@@ -743,30 +919,23 @@ int copy_on_write(uint64_t errorno)
 
 }
 
-uint64_t fork()
+uint64_t fork_syscall()
 {
 	pcb *parent= curr_task;	
         pcb *child= new_task();
 
         memcpy(child->kstack, parent->kstack, 512*8);
-
-        //child->rsp=parent->rsp;
-
-        //what should be the state
         child->pml4_t = copy_pagetables(parent->pml4_t + KERNBASE);
         child->parent_pid = parent->pid;
 	child->ustack = parent->ustack;
 	child->rip= parent->rip;
-        //child->mm = (mm_struct *)page_alloc_k();
-        vm_struct *list = (vm_struct *)page_alloc_k();
+//        child->cwd = parent->cwd;
+	vm_struct *list = (vm_struct *)page_alloc_k();
         memset((uint64_t)list,0,PAGESIZE);
         copy_vmas(parent->vm_head, &list);
         child->vm_head = list;
-
+	child->kstack[511] = 92736;	
 	run_queue_add(child);	
-	//just to check if its a child process.
-       	child->kstack[511] = 92736;
-	
 	if(curr_task->pid==parent->pid)
 	{
 		return child->pid;
@@ -775,3 +944,10 @@ uint64_t fork()
 	return 0;
 }
 
+void exec(char *filename)
+{
+	clear_process_mem(curr_task);
+	kprintf_k("Starting a new task through exec\n");
+	create_task(filename);
+ 	return;	
+}

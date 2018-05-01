@@ -1,6 +1,10 @@
 #include <sys/mem.h>
 #include <sys/kprintf1.h>
 #include <sys/pmap.h>
+#include <sys/task.h>
+#include <sys/process.h>
+#define VA(pa) ((pa)+KERNBASE)
+#define PA(va) ((va)-KERNBASE)
 uint64_t physfree_t;
 struct Page *next_free_page;
 void memcpy(void *p1,void * p2,uint64_t size)
@@ -86,6 +90,7 @@ uint64_t page_alloc()
                 struct Page *temp= free_list->next;
                 free_list->next=NULL;
                 free_list=temp;
+		clear_page(addr);
                 return addr;
         }
         else{
@@ -98,6 +103,8 @@ uint64_t page_alloc_k()
 {
         //pages_allocated++;
         uint64_t addr;
+	if((uint64_t)free_list>KERNBASE)
+		free_list=(struct Page *)((uint64_t)free_list-KERNBASE);
 
         if((struct Page *) ((uint64_t)(free_list)+KERNBASE) !=NULL)
         {
@@ -111,7 +118,8 @@ uint64_t page_alloc_k()
                 x= (struct Page *) ((uint64_t)(free_list)+KERNBASE);
                 x = temp;
                 free_list = x;
-                return addr;
+		//clear_page_k(addr-KERNBASE); 
+	        return addr;
         }
         else
 	{
@@ -123,7 +131,7 @@ uint64_t page_alloc_k()
 
 int is_free(int n)
 {
-        if(((struct Page *)(PHYSFREE +(uint64_t) n))->status==1)
+        if(((struct Page *)(physfree_t +(uint64_t) n))->status==1)
                 return 0;
         else
                 return 1;
@@ -143,9 +151,8 @@ uint64_t get_free_list_head()
 void set_page_free(uint64_t address)
 {
 
-        uint64_t pa= address-KERNBASE;
-        int n=(pa/PAGESIZE);
-        struct Page* pages = (struct Page*) PHYSFREE;
+        int n=(address/PAGESIZE);
+        struct Page* pages = (struct Page*)(physfree_t+KERNBASE);
 
         if (pages[n].status != 1 || pages[n].count == 0)
         {
@@ -154,7 +161,7 @@ void set_page_free(uint64_t address)
                 kprintf_k("set_page_free : Impossible case\n");
                 while(1);
         }
-
+	
         pages[n].count--;
         if (pages[n].count == 0)
         {
@@ -266,5 +273,99 @@ void count_page(uint64_t address)
         pages[n].count++;
         return;
 
+}
+void clear_page(uint64_t pa)
+{
+        memset(pa, 0,PAGESIZE);
+	return;
+}
+
+void clear_page_k(uint64_t pa)
+{
+	memset(pa+KERNBASE, 0,PAGESIZE);
+	return;
+} 
+void clear_process_mem(pcb *task)
+{
+	uint64_t cr3=get_cr3();
+	uint64_t pml4_t = cr3+KERNBASE;
+	pml4* pml4_p= (pml4 * )(pml4_t);
+	//clearing the pagetables
+        for(int i=0;i<512;i++)
+        {       
+                if((pml4_p[i])&1 )
+                {       
+                        pdp *pdp_p = (pdp *)((VA(pml4_p[i]) & PAGEALIGN));
+                        for(int j=0;j<512;j++)
+                        {       
+                                if((pdp_p[j])&1 )
+                                {       
+                                        pd *pd_p = (pd *)((VA(pdp_p[j])) & PAGEALIGN);
+                                        for(int k=0;k<512;k++)
+                                        {       
+                                                if((pd_p[k])&1 )
+                                                {       
+                                                        pt *pt_p = (pt *)((VA(pd_p[k])) & PAGEALIGN);                                                     
+                                                        for(int l=0;l<512;l++)
+                                                        {
+								if((pt_p[l]&PAGEALIGN) &1)
+									set_page_free(pt_p[l]);       
+                                                        }
+							set_page_free((uint64_t)pt_p-KERNBASE);
+                                                }
+                                        }
+                                	set_page_free((uint64_t)pd_p-KERNBASE);
+                                }
+                         
+                         }
+			set_page_free((uint64_t)pdp_p-KERNBASE);
+                    
+                    }
+            
+          }
+	  set_page_free(cr3);
+	  //clearing the vmstructs
+	 vm_struct *list=task->vm_head;
+	 while(list!=NULL)
+	{
+		uint64_t addr = PA((uint64_t)list);
+		list = list->next;
+		set_page_free(addr);
+	}
+	  return;
+}
+uint64_t get_reference_count(uint64_t address)
+{
+
+        int n=(address/PAGESIZE);
+        struct Page* pages = (struct Page*)(physfree_t+KERNBASE);
+
+        if (pages[n].status != 1 || pages[n].count == 0)
+        {
+
+                // TODO : remove this
+                kprintf_k("set_page_free : Impossible case\n");
+                while(1);
+        }
+
+        return pages[n].count;
+}
+
+void decrement_reference_count(uint64_t address)
+{
+
+        int n=(address/PAGESIZE);
+        struct Page* pages = (struct Page*)(physfree_t+KERNBASE);
+
+        if (pages[n].status != 1 || pages[n].count == 0)
+        {
+
+                // TODO : remove this
+                kprintf_k("set_page_free : Impossible case\n");
+                while(1);
+        }
+
+        pages[n].count-=1;
+	return;
 }
 

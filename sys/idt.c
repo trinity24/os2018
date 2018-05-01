@@ -118,7 +118,7 @@ void interrupt_call(uint64_t num)
 }
 extern inline void load_idt(struct idt_ptr *idt_pt)
 {
-	  __asm__ volatile ("lidt %0" ::"m"(*(idt_pt)));
+	  __asm__ volatile ("cli;lidt %0" ::"m"(*(idt_pt)));
 
 }
 extern void isr32();
@@ -131,12 +131,12 @@ void timer()
 { 
         static int countTimer=0,sec=0;
         countTimer++;
-	kprintf_k("Seconds is %d\n",countTimer);
+	//kprintf_k("Seconds is %d\n",countTimer);
         if(countTimer>18)
         {   
 		sec++;
          	countTimer=0;
-		put_time(sec);   
+		//put_time(sec);   
 	}
 	
 	PIC_sendEOI(0);

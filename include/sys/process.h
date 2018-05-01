@@ -3,7 +3,7 @@
 #define _PROCESS_H
 #include <sys/defs.h>
 //#include <sys/task.h>
-
+#define PROCESSES_COUNT 1000
 void initialise_pcb();
 void page_fault_handler();
 
@@ -21,8 +21,19 @@ void switch_to_user_mode();
 //void fork(pcb *parent);
 int copy_on_write(uint64_t error_num);
 //void copy_vmas (vm_struct *parent, vm_struct **child);
-
+uint64_t get_cr3();
+uint64_t get_cr2();
 void page_fault_handler(uint64_t error_num);
 void switch_to_user_mode();
-
+void exec(char *filename);
+void ps_syscall();
+uint64_t kill_syscall(int process_id,int signal);
+void adopt_orphan(int parent_id);
+void exit_syscall(int status);
+uint64_t wait_syscall(int *status);
+uint64_t waitpid_syscall(int process_id, int *status);
+void slacked_forever();
+//void run_queue_add(pcb *task);
+//void wait_queue_add(pcb *task);
+//void clear_pcb(pcb task);
 #endif

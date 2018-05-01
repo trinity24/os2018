@@ -1,7 +1,7 @@
 
 
 #include <sys/Mysyscalldefs.h>
-int ret;
+uint64_t ret;
 
 uint64_t MyOpendef(uint64_t syscallNum,const char *file,uint64_t flag, uint64_t  mode)
 {
@@ -13,21 +13,89 @@ uint64_t Mygetdentsdef(uint64_t syscallNum,uint64_t fd, void * mydirent, uint64_
 	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(mydirent),"d"(count):"memory");
 	return ret;
 }
-
-
 uint64_t MyWritedef(uint64_t syscallNum,uint64_t fd, char * buf, uint64_t count)
 {
-	__asm__ volatile(
-			  "int $0x80;"
-			  "movq %%rax,%1;"
-			   :"=a"(ret): "a"(syscallNum),"b"(fd), "c"(buf),"d"(count):"memory");
+        __asm__ volatile(
+                          "int $0x80;"
+                          "movq %%rax,%1;"
+                           :"=a"(ret): "a"(syscallNum),"b"(fd), "c"(buf),"d"(count):"memory");
 
+        return ret;
+}
+uint64_t Myget_pid(uint64_t syscallNum)
+{       
+        __asm__ volatile( 
+                          "int $0x80;"
+                          "movq %%rax,%1;"
+                           :"=a"(ret): "a"(syscallNum):"memory");
+        
+        return ret;
+}
+
+void Myps(int syscallNum)
+{
+         __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum):"memory");
+
+}
+uint64_t MyKill(int syscallNum,pid_t pid, int signal)
+{
+	 __asm__ volatile(
+                          "int $0x80;"
+                           :: "a"(syscallNum),"b"(pid), "c"(signal):"memory");
+	__asm__ volatile("movq %%rax,%0":"=b"(ret):);
 	return ret;
 }
 
- uint64_t MyReaddef(uint64_t syscallNum,uint64_t fd, char *buf,uint64_t count)
+uint64_t Mywait(int syscallNum,int *status)
 {
-	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(buf),"d"(count):"memory");
+	 __asm__ volatile(
+                          "int $0x80;"
+                           :: "a"(syscallNum),"b"(status):"memory");
+         __asm__ volatile("movq %%rax,%0":"=b"(ret):);
+	return ret;
+}
+uint64_t Mywaitpid(int syscallNum, int pid, int *status)
+{
+	 __asm__ volatile(
+                          "int $0x80;"
+                           :: "a"(syscallNum),"b"(pid),"c"(status):"memory");
+         __asm__ volatile("movq %%rax,%0":"=b"(ret):);
+        return ret;
+
+}
+/*
+pid_t Myget_pid(int syscallNum)
+{
+         __asm__ volatile(
+                          "int $0x80;"
+                           :: "a"(syscallNum):"memory");
+	
+         __asm__ volatile("movq %%rax,%0":"=b"(ret):);
+        return ret;
+}*/
+pid_t Myget_ppid(int syscallNum)
+{
+         __asm__ volatile(
+                          "int $0x80;"
+                           :: "a"(syscallNum):"memory");
+         __asm__ volatile("movq %%rax,%0":"=b"(ret):);
+        return ret;
+}
+
+
+void MyExit(int syscallNum,int status)
+{
+	 __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(status):"memory");
+
+}
+int Mychdirdef(int syscallNum,const char *path)
+{
+	         __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(path):"memory");
+	return ret;
+}
+ uint64_t MyReaddef(uint64_t syscallNum,uint64_t fd, char *buf)
+{
+	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(buf):"memory");	
 	return ret;
 }
 
@@ -42,9 +110,27 @@ uint64_t MyWritedef(uint64_t syscallNum,uint64_t fd, char * buf, uint64_t count)
 	__asm__ __volatile__ ("int $0x80":"=a"(ret): "a"(syscallNum):"memory");
 	return ret;
 }
+ void MyExecdef(uint64_t syscallNum,char *filename, char* args[], char* envp[])
+{
+        __asm__ __volatile__ ("int $0x80":"=a"(ret): "a"(syscallNum), "b"(filename), "c"(args), "d"(envp):"memory");
+        return ;
+}
 
  uint64_t MyPipedef(uint64_t syscallNum,uint64_t *filedes)
 {
 	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(filedes):"memory");
 	return ret;
+}
+ 
+void* Mymalloc(uint64_t syscallNum, int size)
+{
+	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"((uint64_t)size):"memory");
+	return (void*)ret;
+}
+void* Mygetcwd(uint64_t syscallNum, char *buf, int size)
+{
+	return (void*)0;
+
+//	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum),"b"(buf) ,"c"((uint64_t)size):"memory");
+  //      return (void*)ret;
 }

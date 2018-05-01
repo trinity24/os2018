@@ -2,7 +2,7 @@
 #define MEM_H
 
 #include <sys/defs.h>
-
+#include <sys/task.h>
 #define	KERNBASE 0xffffffff80000000
 
 #define FREE 1
@@ -36,6 +36,7 @@ struct Page {
     uint32_t count;
     struct Page *next;
 };
+
 void print_initial_state(uint64_t physbase,uint64_t physfree);
 void initialise_memory_management(uint32_t* modulep,uint64_t physfree,uint64_t avail_mem_end);
 uint64_t get_avail_mem_end(uint32_t *modulep);
@@ -46,11 +47,14 @@ void memset(uint64_t address, int data, int size);
 void set_page_free(uint64_t address);
 uint64_t get_free_list_head();
 void print_free_list_head();
+void clear_page(uint64_t pa);
+void clear_page_k(uint64_t pa);
+void clear_process_mem(pcb *task);
 int is_free(int n);
 uint64_t page_alloc_k();
 uint64_t page_alloc();
 int create_list( uint64_t end, uint64_t physfree);
-
-
+uint64_t get_reference_count(uint64_t address);
+void decrement_reference_count(uint64_t address);
 #endif
 

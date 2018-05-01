@@ -28,9 +28,11 @@ void start(uint32_t *modulep, void *physbase, void *physfree)
 	initialise_paging((uint64_t)physbase, (uint64_t)physfree,avail_mem_end);
  	initialize_idt();
    	initialise_tasks();
+	__asm__ volatile("sti");
+	//create task, should accept argumets TODO: execve should accept arguments
    	create_task("bin/test");		
-   	while(1);
- 	 return;
+   	while(1); 
+ 	return;
 }
 
 void boot(void)

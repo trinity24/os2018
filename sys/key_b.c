@@ -1,6 +1,13 @@
 //#include <system.h>
 #include <sys/defs.h>
 #include <sys/kprintf1.h>
+#include <sys/task.h>
+#include <sys/pic.h>
+
+#define BUFFER_SIZE 1000
+char read_buff[BUFFER_SIZE];
+
+int read_it=0,consumer_it=0,read_linecount=0;
 
 unsigned char kb_code[128] =
 {
@@ -66,15 +73,63 @@ extern void kb_interrupt_handler()
 	}
 	else
 	{
-		if(sht_flag==1)
+		if (enter_key < 58)
 		{
-			//enter capital letter
-			kprintf("%c",kb_code[enter_key]-32);
-		}
-		else
-		{
-			kprintf("%c",kb_code[enter_key]);
+			if(sht_flag==1)
+			{
+				//enter capital letter
+				kprintf_k("%c",kb_code[enter_key]-32);
+				read_buff[read_it++]=kb_code[enter_key]-32;
+			}
+			else
+			{
+				kprintf_k("%c",kb_code[enter_key]);
+				read_buff[read_it++]=kb_code[enter_key];
+				read_it%=BUFFER_SIZE;
+				if(kb_code[enter_key]=='\n')
+				{
+					
+					read_linecount++;
+					read_suspend_remove();
+				}
+					
+			}
 		}
 	}
+
+	PIC_sendEOI(1);
 	return;
+}
+
+//TODO: Add a function 
+//Read should call this function
+
+int consumer_read(char *buff)
+{
+	int count =0;
+	while(1)
+	{
+		if(read_linecount==0)
+		{
+			read_suspend_add(curr_task);
+			schedule();
+		}
+		else
+		{	
+			while(read_buff[consumer_it]!='\n')
+			{
+				*buff=read_buff[consumer_it];
+				consumer_it++;
+				consumer_it%= BUFFER_SIZE;
+				buff++;
+				count++;
+			}
+			consumer_it++;
+			consumer_it%= BUFFER_SIZE;
+			read_linecount--;
+			*buff= '\0';
+			return count;
+		}
+	}
+	return -1;
 }
