@@ -41,9 +41,9 @@ uint64_t read_syscall(char *buf)
 {
 	int count;
 	count=consumer_read(buf);
-	for(int i=0;i<count;i++)
+	/*for(int i=0;i<count;i++)
  		kprintf_k("%c",buf[i]);
-	kprintf_k("\n"); 	
+	kprintf_k("\n"); 	*/
 	return count;
 }
 uint64_t syscallHandler(struct Regs *regs)
@@ -71,7 +71,7 @@ uint64_t syscallHandler(struct Regs *regs)
 			ps_syscall();
 			break;
 		case 11: 
-			exec((char *)regs->rbx);
+			//exec((char *)regs->rbx);
 			break;	
 		case 39:
 			regs->rax=(uint64_t)get_pid();
@@ -85,7 +85,7 @@ uint64_t syscallHandler(struct Regs *regs)
                         }
                         return regs->rax;
 		case 59:
-                        exec((char *)regs->rbx);
+                        exec((char *)regs->rbx, (char **)regs->rcx,(char **)regs->rdx);
                         break;
 		case 60: 
 			exit_syscall(regs->rbx);

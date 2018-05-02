@@ -8,5 +8,10 @@ void _start(void) {
 	char *argv[10];
 	char *envp[10];
 	*/
-	exit(main(0,NULL, NULL));
+
+	uint64_t rsp;
+	__asm__ volatile("movq %%rsp,%0":"=b"(rsp));
+	rsp += 8;	
+	exit(main(*(int*)rsp,(char**)(rsp+8), 
+                  (char**)(rsp+((*(int*)rsp) + 2)*8)));
 }

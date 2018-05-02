@@ -162,7 +162,7 @@ void read_suspend_add(pcb *task)
 }
 void read_suspend_remove()
 {
-	kprintf_k("Reading suspended\n");
+	//kprintf_k("Reading suspended\n");
 	for(int i=0;i<PROCESS_COUNT;i++)
 	{
 		if(all_tasks[i].state==READ_SUSPEND_P)
@@ -524,7 +524,7 @@ void allocate_stack()
 	return;
 }
 */
-void switch_to_user_mode()
+void switch_to_user_mode(int create_stack, uint64_t args_page, uint64_t stack_top)
 {
         //changing address space. Also, needs to be
 	__asm__ volatile("movq %0,%%rsp;" : "=b"(curr_task->rsp));
@@ -532,10 +532,10 @@ void switch_to_user_mode()
 	pml4 *user_pml4 = (pml4 *)page_alloc_k();
 	uint64_t kernel_cr3;
 	 __asm__ volatile("movq %%cr3,%0":"=b"(kernel_cr3):);
-	uint64_t user_stack = page_alloc_k();
+
+	uint64_t user_stack = (create_stack) ? page_alloc_k() : args_page;
 	page_table_walk_k(user_stack-KERNBASE,STACKTOP-4096,(pml4)user_pml4,0x7);	
-        curr_task->ustack= STACKTOP;
-					
+        curr_task->ustack= (create_stack) ? (STACKTOP-16) : stack_top;
         //copy page tables of kernel to user pagetables.
 	*(pml4 *)((uint64_t)user_pml4 + 511*8) = *((pml4 *)(kernel_cr3+KERNBASE+511*8));
 	//now load the cr3 with the user_pml4
@@ -702,17 +702,17 @@ void create_task(char *filename)
 
 //	task->cwd= "/";		
 //	while(1);
-	switch_to_user_mode();	
+	switch_to_user_mode(1, 0, 0);	
 	return;	
 }
-void exec_create_task(char *filename)
+void exec_create_task(char *filename, uint64_t args_page, uint64_t stack_top)
 {
 	pcb* task = curr_task;
 	vm_struct *list=NULL;	
 	task->rip = elf_load(filename,&list);
 
         task->vm_head =list;
-        switch_to_user_mode();
+        switch_to_user_mode(0, args_page, stack_top);
         return;
 
 }	
@@ -973,11 +973,65 @@ void sleep_syscall(int sec)
 	schedule(); 		
 }
 char globalfname[100];
-void exec(char *filename)
+void exec(char *filename,char *args[],char *envp[])
 {
+#define BYTEALIGN(addr) (((addr)/8)*8)
+	
+	uint64_t arg_page = page_alloc_k();
+	
+	int envp_count=0;
+	
+	while(envp && envp[envp_count]!=NULL)
+		envp_count++;
+	int args_count=0;
+	while(args && args[args_count]!=NULL)
+                args_count++;
+	
+	char *ptr = (char*) (arg_page+PAGESIZE-50);
+	char *content_ptr=(char*) (STACKTOP-50);
+	
+	for(int i=envp_count-1;i>=0;i--)
+	{
+		int len = strlen(envp[i]);
+		ptr-=len+1;
+		strcpy(ptr,envp[i]);
+		
+	}
+	for(int i=args_count-1;i>=0;i--)
+        {
+                int len = strlen(args[i]);
+                ptr-=len+1;
+                strcpy(ptr,args[i]);
+        
+        }
+	ptr -=24;
+	ptr = (char *)BYTEALIGN((uint64_t)ptr);
+	//Nowgive a NULL to indicate end of envps
+	uint64_t *ptr1;	
+	ptr1=(uint64_t*)ptr;
+	*ptr1=0;
+	ptr1--;
+	for(int i=envp_count-1;i>=0;i--)
+        {
+		*ptr1= (uint64_t)(content_ptr-(strlen(envp[i])+1));
+		ptr1--;
+		content_ptr-=strlen(envp[i]) + 1; 
+        }
+	*ptr1=0;
+	ptr1--;
+	 for(int i=args_count-1;i>=0;i--)
+	{
+		*ptr1= (uint64_t)(content_ptr-(strlen(args[i])+1));
+		ptr1--;
+		content_ptr-=strlen(args[i])+1;
+	}
+	*ptr1=args_count;
+
+	//TODO: Argments for exec should be done
+	
 	strcpy(globalfname, filename);
 	clear_process_mem(curr_task);
-	exec_create_task(globalfname);
+	exec_create_task(globalfname, arg_page, STACKTOP - (arg_page+PAGESIZE-((uint64_t)ptr1)));
  	return;	
 }
 void update_sleep_tasks()

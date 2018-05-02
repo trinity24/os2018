@@ -160,7 +160,6 @@ void initialise_shell()
 	char readline[100];
         do
         {
-		printf("-----");
                 puts("sbush> ");
                 gets_l(readline,100);
 		puts(readline);

@@ -25,7 +25,7 @@ uint64_t get_cr3();
 uint64_t get_cr2();
 void page_fault_handler(uint64_t error_num);
 void switch_to_user_mode();
-void exec(char *filename);
+void exec(char *filename,char *args[],char *envp[]);
 void ps_syscall();
 uint64_t kill_syscall(int process_id,int signal);
 void adopt_orphan(int parent_id);
