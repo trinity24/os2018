@@ -21,10 +21,15 @@ vm_struct *vm= NULL;
 void exit_syscall(int status);
 pcb* new_task();
 
+extern char read_buff[100];
+extern int read_it;
+extern int read_linecount;
+
 void check_path(char *path,char *new_path);
 void get_full_path(char *path,char *new_path);
 int is_directory(char *path);
-
+int get_file_ptr(char *path,char **fp);
+int get_file_des(pcb *task);
 void schedule()
 {       
 	pcb *next_task=NULL;
@@ -345,8 +350,7 @@ int chdir_syscall(char *path)
 	if(is_directory(new_path)!=0)
 	{
 		
-		strcpy(curr_task->cwd, new_path);
-		
+		strcpy(curr_task->cwd, new_path);	
 		return 0;
 	}
 	return -1;
@@ -604,7 +608,7 @@ void check_path(char *path, char *new_path)
                 return;
         }
         // handling relative path
-        if(*path !='/') //relative path
+        if(first_occurence(path,'.')) //relative path
         {
                 //get cwd : Current working directory
                 if(*path == '.'&& *(path+1) =='/')
@@ -628,6 +632,11 @@ void check_path(char *path, char *new_path)
                         get_full_path(full_path,new_path);
                 	return;
 		}
+		else
+		{
+			
+			get_full_path(path, new_path);
+		}
         }
         else //absolute path 
         {
@@ -650,18 +659,21 @@ void get_full_path(char *path, char *new_path)
 	}
 	int j=0; int top=0;
         for(int i=0;i<=strlen(path);i++)
-        {       
-                if(path[i]=='.' && path[i+1]=='.' && path[i+2]=='/')
+        {      
+                if(path[i]=='.' && path[i+1]=='.' && (path[i+2]=='/'||path[i+2]=='\0'))
                 {       
                         if(s[top-1][0]!='/' && s[top-1][1]!='\0')
-                        {       
-                                if(top>=0)
-                                {       
+                        {      
+                                if(top>0)
+                                {
+					for(int j=0;j<50;j++)
+                                        	s[top-1][j]=0;       
                                         top--;
                                 }
                         }
                         j=0;
-                        i+=2;
+			//if(path[i+2]=='\0')
+			i+=2;
                 }
                 else if (path[i] !='/')
                 {       
@@ -696,10 +708,12 @@ int is_directory(char *path)
                 return 1;
         char *p=&(_binary_tarfs_start);
 
-        while (1)
+        while (p)
         {
                 struct posix_header_ustar *ph =(struct posix_header_ustar*)(uint64_t)p;
-                int filesize = oct2bin(p+0x7c,11);
+                if(ph->name =='\0' )
+                     break;
+		int filesize = oct2bin(p+0x7c,11);
                 if(ph->name[strlen(ph->name)-1]=='/') // this says that its a directory as there's no file extension    
                 {
                         int path_len= strlen(path);
@@ -709,11 +723,29 @@ int is_directory(char *path)
                                 strcpy(new_path,path);
                                 new_path[path_len]='/';
                                 new_path[path_len+1]='\0';
+			
+				if( !strcmp(new_path,(char *)(uint64_t)ph->name,strlen(new_path)))
+                        	{
 
-                                if(strcmp(new_path,ph->name,strlen(new_path)))
+                                        kprintf_k("%s is the pathname\n",ph->name);
+                                        if((char)ph->typeflag[0]=='5')
                                         return 1;
-                        }
-                }
+                        	}
+                	}
+			
+			
+			else
+			{
+				if( !strcmp(path,(char *)(uint64_t)ph->name,strlen(path)))
+                        	{
+
+                                	 kprintf_k("%s is the pathname\n",ph->name);
+                                 	  if((char)ph->typeflag[0]=='5')//if((char)ph->typeflag[0]=='0'||(char)ph->typeflag[0]=='\0')
+                                 		return 1;
+                        	}
+			}
+		}
+		
                 p+=(((filesize+511)/512)+1)*512;
         }
         return 0;
@@ -1160,3 +1192,221 @@ void update_sleep_tasks()
 	}
 	return;
 }
+
+
+
+
+
+
+//DIRECTORIES
+void initialise_files(pcb *task)
+{
+	for(int i=0;i<3;i++)
+	{
+		task->files[i].state=ALLOCATED_F;
+			
+		if(i==0) strcpy(task->files[i].file_name,"stdin");
+		if(i==1) strcpy(task->files[i].file_name,"stdout");
+		if(i==2) strcpy(task->files[i].file_name,"stderr");
+	}
+	for(int i=3;i<FILE_COUNT;i++)
+	{
+		task->files[i].state=UNALLOCATED_F;
+		
+	}
+	return;
+
+}
+int is_file(char *path)
+{
+	if(path==NULL)
+                return 0;
+	char *p=&(_binary_tarfs_start);
+	while (1)
+        {
+                struct posix_header_ustar *ph =(struct posix_header_ustar*)(uint64_t)p;
+                if(strlen(ph->name)==0)
+                        break;
+		int filesize = oct2bin(p+0x7c,11);
+		if(!strcmp(path, ph->name,strlen(path))) 
+                {
+			if((char)(ph->typeflag[0])=='0'||(char)ph->typeflag[0]=='\0')
+				return 1 ;
+                }
+                p+=(((filesize+511)/512)+1)*512;
+        }
+	return 0;
+
+	
+}
+int get_file_ptr(char *path,char **fp)
+{
+        if(path==NULL)
+                return 0;
+        char *p=&(_binary_tarfs_start);
+        while (1)
+        {
+                struct posix_header_ustar *ph =(struct posix_header_ustar*)(uint64_t)p;
+                int filesize = oct2bin(p+0x7c,11);
+
+                if(!strcmp(path, ph->name,strlen(path)))
+                {
+                        if((char)ph->typeflag[0]=='0'||(char)ph->typeflag[0]=='\0')
+                {
+				*fp=(char *)((uint64_t)ph+512);
+		         	return filesize ;
+                }
+		}
+                p+=(((filesize+511)/512)+1)*512;
+        }
+        return 0;
+
+
+}
+int open_syscall(char *path,int flags)
+{
+	if(path==NULL)
+		return -1;
+        char new_path[256];
+        check_path(path, new_path);
+	if(is_file(new_path))
+	{	
+		int fd= get_file_des(curr_task);
+		strcpy(curr_task->files[fd].file_name,new_path);
+		int filesize=0;
+		char *file_ptr;
+		filesize =get_file_ptr(new_path,&file_ptr);		
+		curr_task->files[fd].start_address= (uint64_t)file_ptr;
+		curr_task->files[fd].file_size=filesize;
+		curr_task->files[fd].offset = curr_task->files[fd].start_address;	
+		return fd;
+	}
+	kprintf_k("Error in opening the file\n");
+
+	return -1;	
+}
+int  close_syscall(int fd)
+{
+	if(fd>=3 && fd<FILE_COUNT)
+	{
+		curr_task->files[fd].state = UNALLOCATED_F;
+		return fd;
+	}
+	else 
+	{
+		kprintf_k("Error in closing the file\n");
+		return -1;
+	}
+}
+int get_file_des(pcb *task)
+{
+	for(int i=3;i<FILE_COUNT;i++)
+	{	
+		if(task->files[i].state==UNALLOCATED_F)
+		{	
+			task->files[i].state=ALLOCATED_F;
+			return i;
+		}
+	}
+	kprintf_k("No more FILEdescriptors available for this process\n");
+	return -1;	
+}
+
+
+int opendir_syscall(char *path)
+{
+        char new_path[256];
+        check_path(path, new_path);
+        if(is_directory(new_path))
+        {
+                //get a free filedes
+                for(int i=0;i<FILE_COUNT;i++)
+                {
+                        if(curr_task->dirs[i].state==UNALLOCATED_D)
+                        {
+                                strcpy((curr_task->dirs[i].dir_name),new_path);
+                                curr_task->dirs[i].offset= (uint64_t)(&_binary_tarfs_start);
+                               	return (i+1);
+                        }
+                }
+        }
+        return -1;
+}
+
+uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count)
+{
+	uint64_t i=0;
+        if(fd!=1&&curr_task->files[fd].state==ALLOCATED_F )
+        {
+		char *p = (char *)curr_task->files[fd].offset;
+		while(count-- && buf[i]!='\0')
+		{
+			*p=*buf;
+			buf++;p++;
+			i++;
+					
+		}
+        }
+        else if(fd==1)
+	{
+		while(count-- && buf[i]!='\0')
+        	{
+                	kprintf_k("%c",buf[i]);
+                	i++;
+        	}
+		return i;
+	}
+	else
+		kprintf_k("Error in writing to the file\n");
+	return -1;
+}
+uint64_t read_syscall(int fd,char *buf,int count)
+{
+        if(fd==0)
+	{	
+		int count1;
+        	count1=consumer_read(buf);
+		return count1;
+	}
+	else
+	if(fd==1 ||fd == 2)
+	{
+		kprintf_k("Error in reading. Cant read from stdout/stderr\n ");
+		return -1;
+	}
+	if(!(curr_task->files[fd].state==ALLOCATED_F))
+		return -1;
+	if(count<0)return -1;
+	
+	char *p = (char *)curr_task->files[fd].offset;
+	char *end = (char *)(curr_task->files[fd].file_size+curr_task->files[fd].start_address);
+	if(count<=((uint64_t)end-(uint64_t)p))
+	{
+		while(count--)
+		{
+			*buf=*p;
+			p++;buf++;
+		}
+		*buf='\0';
+		curr_task->files[fd].offset = (uint64_t)p+count;
+		return count;
+	}
+	else
+	{
+		count=0;	
+		while(p<=end)
+		{
+			count++;
+			*buf=*p;
+                        p++;buf++;
+		}
+		*buf='\0';
+		curr_task->files[fd].offset = (uint64_t)p+count;
+	}
+		
+	return count;	
+}		
+
+
+
+

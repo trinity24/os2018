@@ -32,7 +32,7 @@ typedef struct mm_struct{
 } mm_struct;
 
 struct file_des{
-	char name[NAME_MAX];
+	char file_name[NAME_MAX];
 	uint64_t offset;
 	uint64_t start_address;
 	uint64_t file_size;
@@ -41,7 +41,7 @@ struct file_des{
 typedef struct file_des FILE;
 
 struct dir_des{
-	char name[NAME_MAX];
+	char dir_name[NAME_MAX];
 	uint64_t offset;
 	uint64_t start_address;
 	uint64_t file_size;
@@ -99,4 +99,8 @@ int chdir_syscall(char *path);
 uint64_t get_pid();
 uint64_t get_ppid();
 char* getcwd_syscall(char *cwd,int size);
+int open_syscall(char *pathi,int flags);
+uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count);
+int close_syscall(int fd);
+uint64_t read_syscall(int fd,char *buf,int count);
 #endif

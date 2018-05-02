@@ -22,10 +22,17 @@ int  main(int argc, char* argv[], char* envp[])
 		getcwd(buf,10);
 		printf("Current working directory : %s\n",buf);
 		
-		chdir("/bin/test/../test");
-		printf("Changing working directory to /bin/test/../test\n");
+		chdir("bin/test/../test/..");
+		printf("Changing working directory to bin/test/../test\n");
 		getcwd(buf,10);
-                printf("Current working directory : %s\n",buf);
+		printf("Current working directory : %s\n",buf);
+		
+		int fd=open("docs/sharmila.txt",2);
+		write(fd,"saichandisawesome",10);
+		close(fd);
+		fd=open("docs/sharmila.txt",2);
+		read(fd,buf,10);
+		printf("%s is read\n",buf);
 		exit(123);
 	}
 	else

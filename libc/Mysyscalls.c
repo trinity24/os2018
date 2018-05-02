@@ -3,40 +3,13 @@
 #include <sys/Mysyscalldefs.h>
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <string.h>
 char file_global[300]="";
 char buff_global[300];
 uint64_t *filedes;
 //long MyOpendir()
 #define KERNBASE 0xffffffff80000000
 
-void print(char *s)
-{
-	
-	char *video = (char*)(0xB8000+KERNBASE);
-        
-        while(s!='\0')
-        {
-                *video=*s;
-                video++;
-                s++;
-        }
-	return;
-}
-uint64_t open(const char *file,uint64_t flag, uint64_t mode)
-{
-	int i=0;
-	while(file[i]!='\0')
-	{
-		file_global[i]=file[i];
-	}
-	
-
-
-	return MyOpendef(2,file_global,flag,777);
-
-
-}
 pid_t get_pid()
 {
 	return Myget_pid(39);
@@ -68,20 +41,17 @@ void exit(int status)
 }
 uint64_t write(uint64_t fd, char * buf, uint64_t count)
 {
-	/*int i=0;
-	
-	while(buf[i]!='\0')
-	{
-		buff_global[i]=buf[i];
-		i++;
-	}*/
 	return MyWritedef(1,fd,buf,count);
 
 }
-uint64_t read(uint64_t fd,char *buf)
+int close(int fd)
+{
+	return Myclose(89,fd);
+}
+uint64_t read(int fd,char *buf,int count)
 {
 	uint64_t i=0;
-	uint64_t ret = MyReaddef(3,fd,buff_global);
+	uint64_t ret = MyReaddef(3,fd,buff_global,count);
 	
 	while(buff_global[i]!='\0')
 	{
@@ -126,4 +96,17 @@ void* malloc(size_t size)
 char *getcwd(char *buf, size_t size)
 {       
         return Mygetcwd(82,buf,size);
+}
+
+int open(const char *pathname, int flags)
+{
+	char dest[256];
+        int src_len = strlen(pathname);
+        for(int i=0;i<src_len;i++)
+        {
+                dest[i]= pathname[i];
+        }
+        dest[src_len] = '\0';
+
+	return MyOpendef(2,dest,flags);
 }

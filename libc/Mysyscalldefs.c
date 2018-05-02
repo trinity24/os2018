@@ -3,9 +3,23 @@
 #include <sys/Mysyscalldefs.h>
 uint64_t ret;
 
-uint64_t MyOpendef(uint64_t syscallNum,const char *file,uint64_t flag, uint64_t  mode)
+
+
+
+uint64_t Myclose(uint64_t syscallNum,int fd )
 {
-	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(file), "c"(flag),"d"(mode):"memory");
+        __asm__ volatile(
+                          "int $0x80;"
+                          "movq %%rax,%1;"
+                           :"=a"(ret): "a"(syscallNum),"b"(fd):"memory");
+
+        return ret;
+}
+
+
+uint64_t MyOpendef(uint64_t syscallNum, char *file,int flags)
+{
+	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(file), "c"(flags):"memory");
 	return ret;
 }
 uint64_t Mygetdentsdef(uint64_t syscallNum,uint64_t fd, void * mydirent, uint64_t count)
@@ -13,7 +27,7 @@ uint64_t Mygetdentsdef(uint64_t syscallNum,uint64_t fd, void * mydirent, uint64_
 	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(mydirent),"d"(count):"memory");
 	return ret;
 }
-uint64_t MyWritedef(uint64_t syscallNum,uint64_t fd, char * buf, uint64_t count)
+uint64_t MyWritedef(uint64_t syscallNum,int fd, char * buf, uint64_t count)
 {
         __asm__ volatile(
                           "int $0x80;"
@@ -93,9 +107,9 @@ int Mychdirdef(int syscallNum,const char *path)
 	         __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(path):"memory");
 	return ret;
 }
- uint64_t MyReaddef(uint64_t syscallNum,uint64_t fd, char *buf)
+ uint64_t MyReaddef(uint64_t syscallNum,int fd, char *buf,int count)
 {
-	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(buf):"memory");	
+	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(buf),"d"(count):"memory");	
 	return ret;
 }
 

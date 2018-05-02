@@ -21,48 +21,25 @@
 #define SYS_LSEEK
 #define SYS_CHDIR
 #define SYS_GETCWD
-extern char read_buff[100];
-extern int read_it;
-extern int read_linecount;
-uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count)
-{
-	//while(1);
-	uint64_t i=0;
-	while(count-- && buf[i]!='\0')
-	{
-		kprintf_k("%c",buf[i]);
-		i++;
-	}
 
-	//schedule();
-	return i;
-}
-uint64_t read_syscall(char *buf)
-{
-	int count;
-	count=consumer_read(buf);
-	/*for(int i=0;i<count;i++)
- 		kprintf_k("%c",buf[i]);
-	kprintf_k("\n"); 	*/
-	return count;
-}
+
 uint64_t syscallHandler(struct Regs *regs)
 {
 
 
 	switch(regs->rax)
 	{
-		
+	
 		case 1: //write syscall
 			//writing to the output/console
-			if(regs->rbx==1)
-				regs->rax=write_syscall(regs->rbx,(char *)regs->rcx,regs->rdx);
-			
-			break;
+			regs->rax=write_syscall((int)regs->rbx,(char *)regs->rcx,(int)regs->rdx);
+			return regs->rax;	
+		case 2: 
+			regs->rax= open_syscall((char *)regs->rbx, regs->rcx);
+			return regs->rax;
 		
 		case 3:
-			if(regs->rbx==1)
-				regs->rax=read_syscall((char *)regs->rcx);
+			regs->rax=read_syscall((int)regs->rbx,(char *)regs->rcx,(int)regs->rdx);
 			return regs->rax;
 		case 7: 
 			regs->rax= waitpid_syscall(regs->rbx,(int *)regs->rcx);
@@ -101,6 +78,10 @@ uint64_t syscallHandler(struct Regs *regs)
 			return regs->rax;
 		case 83:
 			sleep_syscall((int)regs->rbx);
+			return regs->rax;
+		case 89:
+			kprintf_k("%d is fd in syscallhandler\n",regs->rbx);
+			regs->rax= close_syscall(regs->rbx);
 			return regs->rax;
 		case 110:
 			regs->rax=(uint64_t)get_ppid();

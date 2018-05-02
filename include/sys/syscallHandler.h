@@ -20,5 +20,4 @@ struct Regs{
 };
 
 uint64_t syscallHandler(struct Regs *regs);
-uint64_t read_syscall(char *buf);
 #endif

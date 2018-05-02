@@ -15,6 +15,6 @@ int putchar(int c)
 int puts( char *s)
 {
 
-        return write(1,s,Mystrlen(s));
+        return write(1,s,strlen(s));
 
 }
