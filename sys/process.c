@@ -10,6 +10,7 @@
 #include <sys/kprintf1.h>
 #include <sys/gdt.h>
 #include <sys/mem.h>
+#include <sys/tarfs.h>
 
 pcb *t1,*t2,*t3;
 pcb all_tasks[PROCESS_COUNT];
@@ -19,6 +20,11 @@ vm_struct *vm= NULL;
 #define CLR(addr) (addr&(0xfffffffffffff000))
 void exit_syscall(int status);
 pcb* new_task();
+
+void check_path(char *path,char *new_path);
+void get_full_path(char *path,char *new_path);
+int is_directory(char *path);
+
 void schedule()
 {       
 	pcb *next_task=NULL;
@@ -136,6 +142,8 @@ pcb* new_task()
 			memset((uint64_t)&all_tasks[i], 0, sizeof(pcb));
 			all_tasks[i].pid = i;
 			all_tasks[i].state =ALLOCATED_P;
+			char path[2]="/";
+			strcpy(all_tasks[i].cwd,path);
 			return &all_tasks[i]; 
 		}
 	}
@@ -321,28 +329,29 @@ char* getcwd_syscall(char *cwd,int size)
 	return cwd;
 }
 
-/*
+
 int chdir_syscall(char *path)
 {
-	char new_path[256];
-	get_full_path(path, &new_path);
-	if(new_path[0]=='/'&&new_path[1]=='\0')
+	if(path==NULL)
+		return -1;
+	else if(path[0]=='/'&&path[1]=='\0')
 	{
-		strcpy(curr_task->cwd, new_path);
+		
+		strcpy(curr_task->cwd,path);
 		return 0;
 	}
-	else if(is_directory(new_path)!=-1)
+	char new_path[256];
+	check_path(path, new_path);
+	if(is_directory(new_path)!=0)
 	{
+		
 		strcpy(curr_task->cwd, new_path);
+		
 		return 0;
 	}
 	return -1;
 }
-void getpwd(char *curr_dir)
-{
-	strcpy(curr_dir,curr_task->pwd);
-	return;	
-}*/
+
 uint64_t get_pid()
 {
 	//kprintf_k("ITS IN GETPID\n");
@@ -585,26 +594,130 @@ int tarfs_lookup(char *tarfs,char *file,char **elf_hdr)
     kprintf_k("No file found\n");
     return 0;
 }
-/*
-bool is_directory(char *path)
+void check_path(char *path, char *new_path)
 {
-	char *p=&(_binary_tarfs_start);
-	
-	while (1)
-    	{
-		struct posix_header_ustar *ph =(strcut posix_header_ustar*)p;
-        	int filesize = oct2bin(p+0x7c,11);
-       		if (!strcmp(p,path,strlen(path)+1))
-        	{
-			if(ph->name[strlen(ph->name)-1]=='/') // this says that its a directory as there's no file extension	
-			{
-				
-			}
-				
-        	}	
-        	p+=(((filesize+511)/512)+1)*512;
-    	}
-}*/
+        //Base case : Root directory : '// pr /'
+        if((path[0]=='/'&& path[1]=='/'&&path[2]=='\0') || (path[0] == '/'&&path[1]=='\0'))
+        {
+                *new_path='/';
+                *(new_path+1)='\0';
+                return;
+        }
+        // handling relative path
+        if(*path !='/') //relative path
+        {
+                //get cwd : Current working directory
+                if(*path == '.'&& *(path+1) =='/')
+                {
+                        char *cwd =(char *) page_alloc_k();
+                        getcwd_syscall(cwd,256);
+                        char *full_path = (char *)page_alloc_k();
+			
+                        strcat(full_path,cwd, path+1 );
+                        get_full_path(full_path, new_path);
+                        //now replace the dots in the path
+
+                }
+                else if(*path == '.' && *path+1 == '.' && *path+2== '/')
+                {
+                        char *cwd = (char *)page_alloc_k();
+                        getcwd_syscall(cwd,256);
+                        char *full_path =(char *)page_alloc_k();
+                        strcat(full_path,cwd, path+2 );
+                        //get prev directory from present path. 
+                        get_full_path(full_path,new_path);
+                	return;
+		}
+        }
+        else //absolute path 
+        {
+                //this is absolute path. 
+                //handle the dots
+                get_full_path(path, new_path);
+		return;
+        }
+}
+
+void get_full_path(char *path, char *new_path)
+{       
+        char s[10][50];
+	for(int i=0;i<10;i++)
+	{	
+		for(int j=0;j<50;j++)
+		{
+				s[i][j]=0;
+		}
+	}
+	int j=0; int top=0;
+        for(int i=0;i<=strlen(path);i++)
+        {       
+                if(path[i]=='.' && path[i+1]=='.' && path[i+2]=='/')
+                {       
+                        if(s[top-1][0]!='/' && s[top-1][1]!='\0')
+                        {       
+                                if(top>=0)
+                                {       
+                                        top--;
+                                }
+                        }
+                        j=0;
+                        i+=2;
+                }
+                else if (path[i] !='/')
+                {       
+                        s[top][j++]=path[i];
+                }
+                else if(path[i]=='/' ||path[i]=='\0')
+                {       
+                        s[top][j++]='/';
+                        s[top][j]='\0';
+                        top++;
+                        j=0;
+                }
+        }
+        int k=0;
+        for(int i=0;i<=top;i++)
+        {      
+		for(j=0;j<strlen(s[i]);j++)
+                {      
+			
+			*(new_path+k)=s[i][j];
+			k++;
+		}
+        }
+	*(new_path+k)='\0';
+        return;
+}
+int is_directory(char *path)
+{
+	if(path==NULL)
+		return 1;
+        if(*path=='\0'|| (*path=='/' && *path+1=='\0'))
+                return 1;
+        char *p=&(_binary_tarfs_start);
+
+        while (1)
+        {
+                struct posix_header_ustar *ph =(struct posix_header_ustar*)(uint64_t)p;
+                int filesize = oct2bin(p+0x7c,11);
+                if(ph->name[strlen(ph->name)-1]=='/') // this says that its a directory as there's no file extension    
+                {
+                        int path_len= strlen(path);
+                        if(path[path_len-1]!='/')
+                        {
+                                char new_path[path_len+2];
+                                strcpy(new_path,path);
+                                new_path[path_len]='/';
+                                new_path[path_len+1]='\0';
+
+                                if(strcmp(new_path,ph->name,strlen(new_path)))
+                                        return 1;
+                        }
+                }
+                p+=(((filesize+511)/512)+1)*512;
+        }
+        return 0;
+}
 void elf_read(Elf64_Ehdr *elf,vm_struct **mmap)
 {	
 	uint64_t phdr_offset = elf->e_phoff;
@@ -699,9 +812,8 @@ void create_task(char *filename)
 	
 	task->vm_head =list;
 	curr_task= task;
-
-//	task->cwd= "/";		
-//	while(1);
+	char path[2]="/";
+	strcpy(task->cwd,path);
 	switch_to_user_mode(1, 0, 0);	
 	return;	
 }
@@ -710,8 +822,9 @@ void exec_create_task(char *filename, uint64_t args_page, uint64_t stack_top)
 	pcb* task = curr_task;
 	vm_struct *list=NULL;	
 	task->rip = elf_load(filename,&list);
-
         task->vm_head =list;
+	char path[2]="/";
+	strcpy(task->cwd,path);	 
         switch_to_user_mode(0, args_page, stack_top);
         return;
 
@@ -947,7 +1060,7 @@ uint64_t fork_syscall()
         child->parent_pid = parent->pid;
 	child->ustack = parent->ustack;
 	child->rip= parent->rip;
-//        child->cwd = parent->cwd;
+        strcpy(child->cwd,parent->cwd);
 	vm_struct *list = (vm_struct *)page_alloc_k();
         memset((uint64_t)list,0,PAGESIZE);
         copy_vmas(parent->vm_head, &list);

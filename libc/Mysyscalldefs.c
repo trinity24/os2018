@@ -129,6 +129,9 @@ void* Mymalloc(uint64_t syscallNum, int size)
 }
 void* Mygetcwd(uint64_t syscallNum, char *buf, int size)
 {
+
+
+	 __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(buf),"c"(size):"memory");
 	return (void*)0;
 
 //	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum),"b"(buf) ,"c"((uint64_t)size):"memory");

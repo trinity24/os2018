@@ -15,8 +15,17 @@ int  main(int argc, char* argv[], char* envp[])
 	pid=fork();
 	if(pid==0)
 	{
-		sleep(10);
+		//sleep(10);
+		
 		printf("This is child!\n");
+		char buf[10];
+		getcwd(buf,10);
+		printf("Current working directory : %s\n",buf);
+		
+		chdir("/bin/test/../test");
+		printf("Changing working directory to /bin/test/../test\n");
+		getcwd(buf,10);
+                printf("Current working directory : %s\n",buf);
 		exit(123);
 	}
 	else

@@ -93,6 +93,9 @@ uint64_t syscallHandler(struct Regs *regs)
 		case 61: 
 			regs->rax= wait_syscall((int *)regs->rbx);
 			return regs->rax;
+		case 80:
+			regs->rax = chdir_syscall((char *)regs->rbx);
+			return regs->rax;
 		case 82:
 			regs->rax= (uint64_t)getcwd_syscall((char *)regs->rbx,(int)regs->rcx);
 			return regs->rax;

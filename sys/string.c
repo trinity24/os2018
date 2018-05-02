@@ -110,20 +110,37 @@ int strcmp1(char *s1, char *s2)
     }
     return 1;
 }   
-/*
-char * strcat(char *s1, char *s2)
+void  strcat(char *s,char *s1, char *s2)
 {       
         int l1 = strlen(s1);
         int l2 = strlen(s2);
 	//TODO: Malloc
-        
-        char *s=(char *)(malloc(sizeof(char *)*(l1+l2)));
+       	 
+        //char s[l1+l2];
+	//=(char *)(malloc(sizeof(char *)*(l1+l2)));
         if(s1==NULL)
-                return s2;
+        {	
+		for(int i=0;i<l1;i++)
+		{
+			s[i]=s1[i];
+		}
+		s[l1]='\0';
+		return;
+	}
         if(s2==NULL)
-                return s1;
+        {
+		 for(int i=0;i<l2;i++)
+                {
+                        s[i]=s2[i];
+                }
+                s[l2]='\0';
+		return;
+	}
         if(s1==NULL && s2==NULL)
-                return NULL;
+        {
+		s=NULL;
+		return;
+	}
         int i=0;
         int k1=l1,k2=l2;
         while(k1)
@@ -141,9 +158,9 @@ char * strcat(char *s1, char *s2)
         }
         
         s[l1+l2]='\0';
-        return s;
+        return ;
 }
-char *strtok(char *str,char *delim)
+/*char *strtok(char *str,char *delim)
 {
         static char *prev;int i=0;
         int index=0,min_index;char *token=NULL;

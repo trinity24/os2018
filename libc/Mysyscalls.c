@@ -3,7 +3,6 @@
 #include <sys/Mysyscalldefs.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 char file_global[300]="";
 char buff_global[300];
