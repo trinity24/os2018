@@ -8,6 +8,5 @@ void _start(void) {
 	char *argv[10];
 	char *envp[10];
 	*/
- 	main(0,NULL, NULL); //and 
-	exit(1);
+	exit(main(0,NULL, NULL));
 }

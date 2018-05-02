@@ -58,6 +58,7 @@ typedef struct pcb{
   uint64_t pid;
   enum {UNALLOCATED_P, RUNNING_P, SLEEPING_P, ZOMBIE_P, ALLOCATED_P,WAITING_P, READ_SUSPEND_P} state;
   int exit_status;
+  int sleep_sec;
   uint64_t ustack; 
   uint64_t rip;
  //TODO: Check if we can initialize here. to the root directory. 
@@ -91,7 +92,7 @@ int consumer_read(char *buf);
 void load_userprogram_content(vm_struct *list, uint64_t user_cr3,uint64_t kernel_cr3);
 void run_queue_add(pcb *task);
 void wait_queue_add(pcb *task);
-void clear_pcb(pcb task);
+void clear_pcb(pcb* task);
 void idle();
 void getpwd(char *curr_dir);
 int chdir_syscall(char *path);

@@ -7,6 +7,8 @@
 #define PA(va) ((va)-KERNBASE)
 uint64_t physfree_t;
 struct Page *next_free_page;
+
+
 void memcpy(void *p1,void * p2,uint64_t size)
 {
         char *dst = (char *)p1;
@@ -118,7 +120,7 @@ uint64_t page_alloc_k()
                 x= (struct Page *) ((uint64_t)(free_list)+KERNBASE);
                 x = temp;
                 free_list = x;
-		//clear_page_k(addr-KERNBASE); 
+		clear_page_k(addr-KERNBASE); 
 	        return addr;
         }
         else
@@ -291,7 +293,7 @@ void clear_process_mem(pcb *task)
 	uint64_t pml4_t = cr3+KERNBASE;
 	pml4* pml4_p= (pml4 * )(pml4_t);
 	//clearing the pagetables
-        for(int i=0;i<512;i++)
+        for(int i=0;i<511;i++)
         {       
                 if((pml4_p[i])&1 )
                 {       
@@ -320,11 +322,13 @@ void clear_process_mem(pcb *task)
                          }
 			set_page_free((uint64_t)pdp_p-KERNBASE);
                     
-                    }
-            
+          	}
+		pml4_p[i] = 0;
+            	
           }
-	  set_page_free(cr3);
+	  //set_page_free(cr3);
 	  //clearing the vmstructs
+	tlb_flush();
 	 vm_struct *list=task->vm_head;
 	 while(list!=NULL)
 	{

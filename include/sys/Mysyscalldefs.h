@@ -23,5 +23,5 @@ uint64_t MyPipedef(uint64_t syscallNum,uint64_t *filedes);
 int Mychdirdef(int syscallNum,const char *path);
 void* Mymalloc(uint64_t syscallNum, int size);
 void* Mygetcwd(uint64_t syscallNum, char *buf,int size);
-
+void Mysleepdef(uint64_t syscallNum, int sec);
 #endif

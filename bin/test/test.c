@@ -93,13 +93,17 @@ void exec_shell(char *command, int background)
         if(pid==0)
         {
 		printf("Before execvpe \n");
-		while(1);
         	execvpe(args[0], args, NULL);
         }
         else
 	{
 		if (!background)
+		{
+			printf("Main about to wait - %d\n", pid);
+			printf("Main about to wait - %d\n", pid);
                 	waitpid(pid,&status);
+			printf("Main waiting done\n");
+		}
 	}
         return;
 }

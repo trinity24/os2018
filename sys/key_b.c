@@ -58,14 +58,15 @@ extern void kb_interrupt_handler()
 	__asm__("inb %%dx,%%al":"=a" (enter_key):"d" (port));	
 	 if(sht_flag==1)
         {	
-		if(enter_key==0xF0)
+		if(enter_key==0xaa || enter_key == 0xb6)
                 	{	
 				sht_flag=0;
 				return;
 		        }
 	}
 	
-	if(enter_key==39||enter_key==49)
+	//kprintf_k("%d\n", ((int)enter_key));
+	if(enter_key==0x2a||enter_key==0x36)
 	{
 		sht_flag=1;
 		return;

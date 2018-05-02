@@ -96,11 +96,6 @@ uint64_t read(uint64_t fd,char *buf)
 
 //TODO: gotta change these syscalls later
 
-pid_t MyWaitpid(pid_t pid,uint64_t *stat_add, uint64_t options)
-{
-	
-	return -1;
-}
 pid_t fork()
 {
 	return MyForkdef(57);
@@ -120,7 +115,11 @@ int chdir(const char *path)
         return Mychdirdef(80,path);
 
 }
-
+unsigned int sleep(unsigned int sec)
+{
+	Mysleepdef(83,sec);
+	return 0;
+}
 void* malloc(size_t size)
 {
 	return Mymalloc(81, size);

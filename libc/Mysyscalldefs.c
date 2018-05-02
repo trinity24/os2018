@@ -134,3 +134,8 @@ void* Mygetcwd(uint64_t syscallNum, char *buf, int size)
 //	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum),"b"(buf) ,"c"((uint64_t)size):"memory");
   //      return (void*)ret;
 }
+void Mysleepdef(uint64_t syscallNum, int size)
+{
+	  __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"((uint64_t)size):"memory");
+	
+}

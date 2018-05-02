@@ -956,8 +956,7 @@ uint64_t fork_syscall()
 
 	uint64_t* rsp;	
          __asm__ volatile("movq %%rsp,%0":"=b"(rsp));
-	child->rsp = (uint64_t)&child->kstack[510 - (&parent->kstack[510] - rsp) -15 +9];
-
+	child->rsp = (uint64_t)&child->kstack[510 - (&parent->kstack[510] - rsp) -15 -4];
 	run_queue_add(child);	
 	if(curr_task->pid==parent->pid)
 	{

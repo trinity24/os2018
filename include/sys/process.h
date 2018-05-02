@@ -6,7 +6,7 @@
 #define PROCESSES_COUNT 1000
 void initialise_pcb();
 void page_fault_handler();
-
+void tlb_flush();
 int oct2bin(char *str, int size);
 #define PAGEALIGN 0xfffffffffffff000
 int tarfs_lookup(char *tarfs, char *file, char **elf_hdr);
@@ -31,8 +31,10 @@ uint64_t kill_syscall(int process_id,int signal);
 void adopt_orphan(int parent_id);
 void exit_syscall(int status);
 uint64_t wait_syscall(int *status);
+void sleep_syscall(int secs);
 uint64_t waitpid_syscall(int process_id, int *status);
 void slacked_forever();
+void update_sleep_tasks();
 //void run_queue_add(pcb *task);
 //void wait_queue_add(pcb *task);
 //void clear_pcb(pcb task);

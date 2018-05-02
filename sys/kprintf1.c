@@ -20,7 +20,7 @@
 }*/
 //Reference used: https://github.com/stevej/osdev/blob/master/kernel/misc/kprintf.c
 // decimal value to string
-int base_print (unsigned long int value,int arg_width,char *finalstr,int iter,int base)
+int base_print (unsigned long long value,int arg_width,char *finalstr,int iter,int base)
 {
 
 	if(value==0)
@@ -32,7 +32,7 @@ int base_print (unsigned long int value,int arg_width,char *finalstr,int iter,in
     char s[10]; int i=0;
     int y=value%base;
    // int k;
-    unsigned int x=value; int len,remain_width;
+    unsigned long long x=value; int len,remain_width;
     while(x!=0)
     {
             if(y>=10)
@@ -219,7 +219,7 @@ int convert_fullstring(char *fullstr, char *mainstr, va_list args)
                         iter=x+iter;
                         break;
         	case 'p':
-			x=base_print((long int)va_arg(args, long int),width_arg,fullstr,iter, 16);
+			x=base_print((long long int)va_arg(args, long long int),width_arg,fullstr,iter, 16);
 			iter=x+iter;
 			//break;
         	}

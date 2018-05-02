@@ -140,6 +140,11 @@ void timer()
 	}
 	
 	PIC_sendEOI(0);
+
+	if (countTimer == 0)
+	{
+		update_sleep_tasks();
+	}
 }
  
 void default_intr()
