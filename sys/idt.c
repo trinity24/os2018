@@ -1,6 +1,7 @@
 #include <sys/kprintf1.h>
 #include <sys/defs.h>
 #include <sys/process.h>
+#include <sys/task.h>
 #include <sys/pic.h>
 //#define cs 0x00180000000000
 struct idt_entry  {
@@ -145,6 +146,9 @@ void timer()
 	{
 		update_sleep_tasks();
 	}
+
+	if (countTimer%4 == 0)
+		schedule();
 }
  
 void default_intr()

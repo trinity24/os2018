@@ -34,7 +34,7 @@ uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count)
 		i++;
 	}
 
-	schedule();
+	//schedule();
 	return i;
 }
 uint64_t read_syscall(char *buf)
