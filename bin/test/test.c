@@ -4,71 +4,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/defs.h>
-#include <sys/printf.h>
 #include <sys/Mysyscalls.h>
 #include <sys/string.h>
 #define KERNBASE 0xffffffff80000000
 
-char* gets_l(char *readline,int len)
-{
-		
-	int read_length=0;
-	read_length=read(0, readline, len);
-	if(read_length)return readline;
-	else return NULL;
-}
-/*
-void background(char *command)
-{
-
-        //int status;
-        pid_t pid;
-        //char *x=NULL;
-        char *tokensString_command=NULL,*tokensString_path=NULL,*args[3];
-        //char *s=" &",*y="&"; 
-        tokensString_command=strtok(command," ");
-        strtok(NULL," ");
-        tokensString_path=strtok(NULL," ");
-
-        pid=fork();
-        args[0]=tokensString_command;
-        args[1]="-l";
-        args[2]=NULL;
-
-        if(pid==0)
-        {
-		//TODO:chdir is not done yet;
-                if(chdir(tokensString_path)==-1){
-                printf("error in chdir\n");
-        }
-        //TODO: Add args to exec
-		exec(tokensString_command);
-        }
-
-        return;
-}
-*/
-/*void ls_shell(char *command)
-{
-        char *args[5];
-        int status,pid;
-        char *tokensString_command=strtok(command," ");
-        char *tokensString_path=strtok(NULL," ");
-        pid=fork();
-        if(pid==0)
-        {
-        args[0]=tokensString_command;
-        args[1]="-H";
-        args[2]=NULL;
-        if(tokensString_path)
-                if(chdir(tokensString_path)==-1){
-                        printf("error in chdir\n");};
-        	execvpe(tokensString_command,args);
-        }
-        else
-                waitpid(pid,&status);
-        return;
-}*/
 void exec_shell(char *command, int background)
 {
 	char content[10][20];
@@ -144,6 +83,7 @@ void execute_command(char *readline)
         	cd_shell(readline);
     	else
         	exec_shell(readline, 0);
+	
  /*   	else if(!strcmp1(command,"sh"))
     	{
         	command=strtok(NULL," ");

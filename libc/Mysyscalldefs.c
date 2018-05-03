@@ -22,6 +22,18 @@ uint64_t MyOpendef(uint64_t syscallNum, char *file,int flags)
 	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(file), "c"(flags):"memory");
 	return ret;
 }
+uint64_t Myopendir(uint64_t syscallNum, char *file,int flags)
+{
+        __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(file), "c"(flags):"memory"); 
+	return ret;
+}
+
+uint64_t Myreaddir(uint64_t syscallNum, int fd,int flags,char *buff)
+{
+        __asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(flags),"d"(buff):"memory");
+         return ret;
+}
+
 uint64_t Mygetdentsdef(uint64_t syscallNum,uint64_t fd, void * mydirent, uint64_t count)
 {
 	__asm__ __volatile__ ("int $0x80":"=a"(ret):"a"(syscallNum), "b"(fd), "c"(mydirent),"d"(count):"memory");

@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <sys/defs.h>
 #include <unistd.h>
-#include <sys/printf.h>
 #include <sys/Mysyscalls.h>
 #include <sys/string.h>
 #define KERNBASE 0xffffffff80000000
@@ -33,6 +32,11 @@ int  main(int argc, char* argv[], char* envp[])
 		fd=open("docs/sharmila.txt",2);
 		read(fd,buf,10);
 		printf("%s is read\n",buf);
+		close(fd);
+		fd=opendir("/",2);
+		
+		while(readdir(fd,1,buf)==1)
+			printf("%s is directory read\n",buf);
 		exit(123);
 	}
 	else

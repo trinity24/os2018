@@ -44,6 +44,14 @@ uint64_t write(uint64_t fd, char * buf, uint64_t count)
 	return MyWritedef(1,fd,buf,count);
 
 }
+uint64_t readdir(int fd, int flags,char *buff)
+{
+	return Myreaddir(91,fd, flags,buff);
+}
+uint64_t opendir(char *path, int flags)
+{
+        return Myopendir(90,path, flags);
+}
 int close(int fd)
 {
 	return Myclose(89,fd);

@@ -1,8 +1,5 @@
-
-#include <stdarg.h>
-#include <stdlib.h>
-#include <sys/string.h>
 #include <stdio.h>
+#include <string.h>
 int base_print (unsigned long int value,int arg_width,char *finalstr,int iter,int base)
 {
 

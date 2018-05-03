@@ -24,9 +24,10 @@ pcb* new_task();
 extern char read_buff[100];
 extern int read_it;
 extern int read_linecount;
-
+void initialise_files(pcb *task);
 void check_path(char *path,char *new_path);
 void get_full_path(char *path,char *new_path);
+int is_directory(char *path);
 int is_directory(char *path);
 int get_file_ptr(char *path,char **fp);
 int get_file_des(pcb *task);
@@ -121,10 +122,12 @@ void initialise_tasks()
 	for(int i=0;i<PROCESS_COUNT;i++)
 	{ 	
 		all_tasks[i].pid= i;
+		initialise_files(&all_tasks[i]);
 	}
 	//initialise the head process
 	//slacked_forever();
 	pcb *task1= new_task();
+	
 //	task1->rsp = task1->kstack[510];
 //	run_queue_add(task1);	
 //	task1->rip =(uint64_t) &slacked_forever;
@@ -704,7 +707,7 @@ int is_directory(char *path)
 {
 	if(path==NULL)
 		return 1;
-        if(*path=='\0'|| (*path=='/' && *path+1=='\0'))
+        if(path[0]=='/'||  path[1]=='\0')
                 return 1;
         char *p=&(_binary_tarfs_start);
 
@@ -714,36 +717,30 @@ int is_directory(char *path)
                 if(ph->name =='\0' )
                      break;
 		int filesize = oct2bin(p+0x7c,11);
+		if(!strcmp1(ph->name,path)&&(ph->name[strlen(ph->name)-1]!='/'))
+			return 0;
                 if(ph->name[strlen(ph->name)-1]=='/') // this says that its a directory as there's no file extension    
                 {
                         int path_len= strlen(path);
-                        if(path[path_len-1]!='/')
-                        {
-                                char new_path[path_len+2];
-                                strcpy(new_path,path);
-                                new_path[path_len]='/';
-                                new_path[path_len+1]='\0';
+                        if(path[strlen(path)-1]!='/')
+			{	
+				char new_path[path_len+2];
+                      	  	strcpy(new_path,path);
+                       	 	new_path[path_len]='/';
+                        	new_path[path_len+1]='\0';
 			
-				if( !strcmp(new_path,(char *)(uint64_t)ph->name,strlen(new_path)))
+				if((ph->name[strlen(new_path)]=='/' || ph->name[strlen(new_path)]=='\0')&& !strcmp(new_path,(char *)(uint64_t)ph->name,strlen(new_path)))
                         	{
+				
 
                                         kprintf_k("%s is the pathname\n",ph->name);
                                         if((char)ph->typeflag[0]=='5')
                                         return 1;
                         	}
-                	}
-			
-			
-			else
-			{
-				if( !strcmp(path,(char *)(uint64_t)ph->name,strlen(path)))
-                        	{
-
-                                	 kprintf_k("%s is the pathname\n",ph->name);
-                                 	  if((char)ph->typeflag[0]=='5')//if((char)ph->typeflag[0]=='0'||(char)ph->typeflag[0]=='\0')
-                                 		return 1;
-                        	}
 			}
+                	
+			
+			
 		}
 		
                 p+=(((filesize+511)/512)+1)*512;
@@ -1261,7 +1258,6 @@ int get_file_ptr(char *path,char **fp)
         }
         return 0;
 
-
 }
 int open_syscall(char *path,int flags)
 {
@@ -1313,7 +1309,7 @@ int get_file_des(pcb *task)
 }
 
 
-int opendir_syscall(char *path)
+uint64_t  opendir_syscall(char *path,int flags)
 {
         char new_path[256];
         check_path(path, new_path);
@@ -1325,12 +1321,82 @@ int opendir_syscall(char *path)
                         if(curr_task->dirs[i].state==UNALLOCATED_D)
                         {
                                 strcpy((curr_task->dirs[i].dir_name),new_path);
-                                curr_task->dirs[i].offset= (uint64_t)(&_binary_tarfs_start);
-                               	return (i+1);
+				
+                                curr_task->dirs[i].offset= (uint64_t)&(_binary_tarfs_start);
+                               	return (i);
                         }
                 }
         }
+	kprintf_k("No directory\n");
         return -1;
+}
+
+uint64_t readdir_syscall(int fd,int flags,char *buf)
+{
+
+        int dir_len= strlen(curr_task->dirs[fd].dir_name);
+        char dir_name[dir_len];
+        strcpy(dir_name, curr_task->dirs[fd].dir_name);
+        char *p=(char *)curr_task->dirs[fd].offset;
+	int flag=0;
+        int all=0;
+		
+	if(dir_name[0]=='/'&&dir_name[1]=='\0') all=1;
+	while(1)
+        {
+                struct posix_header_ustar *ph =(struct posix_header_ustar*)(uint64_t)p;
+                if(!strlen(ph->name)) break;
+		int filesize = oct2bin(p+0x7c,11);
+                char dir_content[256];
+		for(int i=0;i<256;i++)	dir_content[i]=0;
+		if(prestring(dir_name,ph->name)||all)
+                {
+			if(all)
+			{		
+				int i=0;
+                                for(i=0;i<strlen(ph->name);i++)
+                                {
+                                        if(ph->name[i]=='/')
+                                                break;
+                                        buf[i]=ph->name[i];
+                                }
+                                buf[i]='\0';
+				p+=(((filesize+511)/512)+1)*512;
+                                curr_task->dirs[fd].offset=(uint64_t)p;
+                                return 1;
+			}	
+                        get_remaining_string(dir_content,ph->name,dir_name);
+			if( first_occurence(dir_content,'/')&&strlen(dir_content)>=2)
+                        {
+                                //its a directory
+				int i=0,l=0;
+				if(dir_content[i]=='/') l=1;	
+                        	for(i=l;i<strlen(dir_content);i++)
+				{
+					if(dir_content[i]=='/')
+						break;
+					buf[i]=dir_content[i];		
+				}
+				buf[i]='\0';
+				flag=1;
+			}
+                	
+                	else if(strlen(dir_content)>=2)
+                	{
+                  		strcpy(buf,dir_content);
+				flag=1;	
+                	}
+			if(flag)
+			{
+				p+=(((filesize+511)/512)+1)*512;
+				curr_task->dirs[fd].offset=(uint64_t)p;
+				return 1;
+			}
+       		}
+		p+=(((filesize+511)/512)+1)*512;
+
+	}
+	return 0 ;
 }
 
 uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count)

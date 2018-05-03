@@ -9,7 +9,8 @@ uint64_t Mygetdentsdef(uint64_t syscallNum,uint64_t fd, void * mydirent, uint64_
 uint64_t MyWritedef(uint64_t syscallNum,int fd, char * buf, uint64_t count);
 uint64_t MyReaddef(uint64_t syscallNum,int fd,  char *buf,int count);
 pid_t MyWaitpiddef(uint64_t syscallNum,pid_t pid,uint64_t *status, uint64_t options);
-
+uint64_t Myreaddir(uint64_t syscallNum, int fd,int flags,char *buff);
+uint64_t Myopendir(uint64_t syscallNum, char *file,int flags);
 uint64_t Mywait(int syscallNum, int *status);
 uint64_t Mywaitpid(int syscallNum, int pid, int *status);
 uint64_t MyKill(int syscallNum,pid_t pid, int signal);

@@ -41,7 +41,34 @@ int count_occurence(char *str, char c)
         }
         return count;
 }
-int strcmp(char *s1, char *s2,uint64_t n)
+
+int prestring(char *s1,char *s2)
+{
+        int l1=strlen(s1);
+        //check if s1 if pre_string of s1
+        int i;
+        for(i=0;i<l1;i++)
+        {
+                if(s1[i]!=s2[i])
+                        break;
+        }
+        if(i==l1) return 1;
+        else    return 0;
+}
+void get_remaining_string(char *str,char *main,char *sub)
+{
+	int len_main=strlen(main);
+	int len_sub = strlen(sub);
+	if(main[len_sub]=='/') len_sub++;
+	for(int i=len_sub;i<len_main;i++)
+	{
+		*str=main[i];
+		str++;
+	}
+	str[len_main]='\0';
+	return;
+}
+int strcmp(char *s1, char *s2,int n)
 {
     if(s1==NULL)
     {

@@ -99,8 +99,10 @@ int chdir_syscall(char *path);
 uint64_t get_pid();
 uint64_t get_ppid();
 char* getcwd_syscall(char *cwd,int size);
-int open_syscall(char *pathi,int flags);
+int open_syscall(char *path,int flags);
 uint64_t write_syscall(uint64_t fd, char *buf, uint64_t count);
 int close_syscall(int fd);
 uint64_t read_syscall(int fd,char *buf,int count);
+uint64_t readdir_syscall(int fd,int flags,char *buf);
+uint64_t opendir_syscall(char *path,int flags);
 #endif

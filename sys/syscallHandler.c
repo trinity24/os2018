@@ -80,8 +80,13 @@ uint64_t syscallHandler(struct Regs *regs)
 			sleep_syscall((int)regs->rbx);
 			return regs->rax;
 		case 89:
-			kprintf_k("%d is fd in syscallhandler\n",regs->rbx);
 			regs->rax= close_syscall(regs->rbx);
+			return regs->rax;
+		case 90:
+			regs->rax= opendir_syscall( (char*)regs->rbx,regs->rcx);
+			return regs->rax;
+		case 91: 
+			regs->rax = readdir_syscall( regs->rbx,regs->rcx, (char*)regs->rdx);
 			return regs->rax;
 		case 110:
 			regs->rax=(uint64_t)get_ppid();

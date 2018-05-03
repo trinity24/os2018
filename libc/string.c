@@ -44,7 +44,7 @@ int count_occurence(char *str, char c)
         }
         return count;
 }
-int strcmp(char *s1, char *s2,uint64_t n)
+int strcmp(char *s1, char *s2,int n)
 {
     if(s1==NULL)
     {

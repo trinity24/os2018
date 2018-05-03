@@ -17,8 +17,12 @@ int waitpid(int pid, int *status);
 unsigned int sleep(unsigned int seconds);
 pid_t getpid(void);
 pid_t getppid(void);
-
+void ps();
+void kill(pid_t pid);
+uint64_t readdir(int fd,int flags,char *buff);
+uint64_t opendir(char *path,int flags);
 // OPTIONAL: implement for ``on-disk r/w file system (+10 pts)''
+
 //off_t lseek(int fd, off_t offset, int whence);
 //int mkdir(const char *pathname, mode_t mode);
 //int unlink(const char *pathname);
