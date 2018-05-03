@@ -38,7 +38,7 @@ int main(int argc, char* argv[], char* envp[])
 			strcpy(prev,buff);
 			clear_buf(buff,256);
 		}
-		
+		return 0;	
 	}	
 	if(argc==2)
 	{

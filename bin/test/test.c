@@ -26,22 +26,16 @@ void exec_shell(char *command, int background)
 			break;
 	}
         
-	printf("pid hello\n");
 	pid=fork();
-	//printf("pid - %d\n", pid);
         if(pid==0)
         {
-		printf("Before execvpe \n");
         	execvpe(args[0], args, NULL);
         }
         else
 	{
 		if (!background)
 		{
-			printf("Main about to wait - %d\n", pid);
-			printf("Main about to wait - %d\n", pid);
                 	waitpid(pid,&status);
-			printf("Main waiting done\n");
 		}
 	}
         return;
@@ -53,23 +47,16 @@ void cd_shell(char *command)
 	char tokensString_path[100];
         strtok(command," ", tokensString_path); // Ignore cd
         strtok(NULL," ", tokensString_path);
-        char str1[1024];
 
-    if(getcwd(str1, sizeof(str1))==NULL){
-        printf("error in getcwd\n");
-    }
-    printf("cwd: %s\n", str1);
-/*
         if(chdir(tokensString_path)==-1){
                 printf("error in chdir\n");
         }
-*/
         char str3[1024];
-     if(getcwd(str3, sizeof(str3))==NULL){
-        printf("error in getcwd\n");
-    }
+     	if(getcwd(str3, sizeof(str3))==NULL){
+        	//printf("error in getcwd\n");
+    	}
 
-    printf("cwd: %s\n", str3);
+    	printf("%s\n", str3);
     return;
 }
 
@@ -102,7 +89,6 @@ void initialise_shell()
         {
                 puts("sbush> ");
                 gets_l(readline,100);
-		puts(readline);
                 execute_command(readline);
         }while(strcmp1(readline,"exit")!=0);
 	

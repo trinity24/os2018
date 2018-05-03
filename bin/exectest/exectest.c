@@ -21,22 +21,22 @@ int  main(int argc, char* argv[], char* envp[])
 		getcwd(buf,10);
 		printf("Current working directory : %s\n",buf);
 		
-		chdir("bin/test/../test/..");
+		chdir("bin/");
 		printf("Changing working directory to bin/test/../test\n");
 		getcwd(buf,10);
 		printf("Current working directory : %s\n",buf);
 		
-		int fd=open("docs/sharmila.txt",2);
-		write(fd,"saichandisawesome",10);
-		close(fd);
-		fd=open("docs/sharmila.txt",2);
-		read(fd,buf,10);
-		printf("%s is read\n",buf);
-		close(fd);
-		fd=opendir("/",2);
+		//int fd=open("docs/sharmila.txt",2);
+		//write(fd,"saichandisawesome",10);
+		//close(fd);
+		//fd=open("docs/sharmila.txt",2);
+		//read(fd,buf,10);
+		//printf("%s is read\n",buf);
+		//close(fd);
+		//fd=opendir("/",2);
 		
-		while(readdir(fd,1,buf)==1)
-			printf("%s is directory read\n",buf);
+		//while(readdir(fd,1,buf)==1)
+		//	printf("%s is directory read\n",buf);
 		exit(123);
 	}
 	else

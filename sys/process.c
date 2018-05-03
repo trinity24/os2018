@@ -714,7 +714,7 @@ int is_directory(char *path)
         while (p)
         {
                 struct posix_header_ustar *ph =(struct posix_header_ustar*)(uint64_t)p;
-                if(ph->name =='\0' )
+                if(!strlen(ph->name) )
                      break;
 		int filesize = oct2bin(p+0x7c,11);
 		if(!strcmp1(ph->name,path)&&(ph->name[strlen(ph->name)-1]!='/'))
@@ -733,10 +733,18 @@ int is_directory(char *path)
                         	{
 				
 
-                                        kprintf_k("%s is the pathname\n",ph->name);
+                                        //kprintf_k("%s is the pathname\n",ph->name);
                                         if((char)ph->typeflag[0]=='5')
                                         return 1;
                         	}
+			}
+			else
+			{
+				if(  ph->name[strlen(path)]=='/' && !strcmp(path,(char *)(uint64_t)ph->name,strlen(path)))
+				{
+					if((char)ph->typeflag[0]=='5')
+                                        return 1;
+				}
 			}
                 	
 			
@@ -827,7 +835,6 @@ void print_task_structurepcb *task)
 void create_task(char *filename)
 {
 	
-	kprintf_k("Filename : %s \n",filename);
 	pcb *task = new_task();
 	run_queue_add(task);		
 	//memset((uint64_t)task, 0, sizeof(struct pcb));
@@ -931,8 +938,9 @@ void page_fault_handler(uint64_t error_num)
 			vm=vm->next;
         	}
 		
-		kprintf_k("Segmentation fault : %p \n", cr2);
-		while(1);
+		kprintf_k("Segmentation fault\n");
+		//kprintf_k("Segmentation fault : %p \n", cr2);
+		//while(1);
 		exit_syscall(-1);
 	}
 	//while(1);
@@ -1118,7 +1126,9 @@ char globalfname[100];
 void exec(char *filename,char *args[],char *envp[])
 {
 #define BYTEALIGN(addr) (((addr)/8)*8)
-	
+
+	if (filename[0] == '/')
+		filename++;	
 	uint64_t arg_page = page_alloc_k();
 	
 	int envp_count=0;
@@ -1263,6 +1273,9 @@ int open_syscall(char *path,int flags)
 {
 	if(path==NULL)
 		return -1;
+
+	if (path[0] == '/')
+		path++;
         char new_path[256];
         check_path(path, new_path);
 	if(is_file(new_path))
@@ -1312,6 +1325,8 @@ int get_file_des(pcb *task)
 uint64_t  opendir_syscall(char *path,int flags)
 {
         char new_path[256];
+	if (path[0] == '/')
+		path++;
         check_path(path, new_path);
         if(is_directory(new_path))
         {

@@ -9,7 +9,7 @@ char buff_global[300];
 uint64_t *filedes;
 //long MyOpendir()
 #define KERNBASE 0xffffffff80000000
-
+char *getcwd(char *buf, size_t size);
 pid_t get_pid()
 {
 	return Myget_pid(39);
@@ -80,7 +80,29 @@ pid_t fork()
 
 void execvpe(char *filename, char* args[], char* envp[])
 {
-	return MyExecdef(59,filename, args, envp);
+	char *p=filename;
+	if(filename[0]=='/')
+	{
+		p++;
+		MyExecdef(59,p, args, envp);
+	}
+	else 
+	{	
+		char append[256],newfile[256];
+		for(int i=0;i<256;i++) {
+			append[i]=0;
+			newfile[i]=0;
+		}
+		getcwd(append,256);
+		int len = strlen(append);
+		if (append[len-1] != '/'){
+			append[len] = '/';
+			append[len+1] = 0;
+		}
+ 
+		strcat(newfile,append,filename);
+		MyExecdef(59,filename, args, envp);
+	}
 }
 uint64_t pipe(uint64_t *fildes)
 {
